@@ -1,0 +1,10 @@
+heroku login
+
+git init
+git add .
+git commit -m "Initial commit"
+
+git add .
+git commit -m "Updated main code"
+
+git push heroku master
