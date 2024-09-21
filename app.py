@@ -1,4 +1,3 @@
-
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -254,25 +253,71 @@ def import_users_excel():
 
 @app.route('/cto_application', methods=['GET', 'POST'])
 def cto_application():
-    # Handle CTO application logic
+    if request.method == 'POST':
+        name = request.form['name']
+        position = request.form['position']
+        days = request.form['days']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        user_id = session['user_id']  # Assuming user is logged in
+        
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('''INSERT INTO cto_application (name, position, days, start_date, end_date, user_id)
+                            VALUES (?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, user_id))
+            conn.commit()
+        
+        flash('CTO Application submitted successfully!')
+        return redirect(url_for('user_dashboard'))
+    
     return render_template('cto_application.html')
+
 
 @app.route('/leave_application', methods=['GET', 'POST'])
 def leave_application():
-    # Handle Leave application logic
+    if request.method == 'POST':
+        name = request.form['name']
+        position = request.form['position']
+        days = request.form['days']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        leave_type = request.form['leave_type']
+        user_id = session['user_id']  # Assuming user is logged in
+        
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, leave_type, user_id))
+            conn.commit()
+        
+        flash('Leave Application submitted successfully!')
+        return redirect(url_for('user_dashboard'))
+    
     return render_template('leave_application.html')
+
 
 @app.route('/travel_authority', methods=['GET', 'POST'])
 def travel_authority():
-    # Your code to handle the form submission
     if request.method == 'POST':
-        # Handle form data, save to the database
-        pass
+        name = request.form['name']
+        position = request.form['position']
+        date = request.form['date']
+        purpose = request.form['purpose']
+        host = request.form['host']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        destination = request.form['destination']
+        user_id = session['user_id']  # Assuming user is logged in
+        
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('''INSERT INTO travel_authority (name, position, date, purpose, host, start_date, end_date, destination, user_id)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', (name, position, date, purpose, host, start_date, end_date, destination, user_id))
+            conn.commit()
+        
+        flash('Travel Authority submitted successfully!')
+        return redirect(url_for('user_dashboard'))
+    
     return render_template('travel_authority.html')
 
 
+
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(debug=True, host='0.0.0.0', port=port)
-
-
+    app.run(debug=True, host='0.0.0.0')
