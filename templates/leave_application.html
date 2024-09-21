@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Leave Application</h2>
+<form method="POST" action="{{ url_for('leave_application') }}">
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="position">Position:</label>
+        <input type="text" id="position" name="position" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="days">No. of Days applied:</label>
+        <input type="number" id="days" name="days" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="leave_type">Type of Leave to be Availed:</label>
+        <select id="leave_type" name="leave_type" class="form-control" required>
+            <option value="Vacation Leave (Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Vacation Leave (Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Mandatory/Forced Leave(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Mandatory/Forced Leave(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Sick Leave  (Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Sick Leave  (Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Maternity Leave (R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)">Maternity Leave (R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)</option>
+            <option value="Paternity Leave (R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)">Paternity Leave (R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)</option>
+            <option value="Special Privilege Leave (Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Special Privilege Leave (Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Solo Parent Leave (RA No. 8972 / CSC MC No. 8, s. 2004)">Solo Parent Leave (RA No. 8972 / CSC MC No. 8, s. 2004)</option>
+            <option value="Study Leave (Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Study Leave (Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="10-Day VAWC Leave (RA No. 9262 / CSC MC No. 15, s. 2005)">10-Day VAWC Leave (RA No. 9262 / CSC MC No. 15, s. 2005)</option>
+            <option value="Rehabilitation Privilege (Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Rehabilitation Privilege (Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Special Leave Benefits for Women (RA No. 9710 / CSC MC No. 25, s. 2010)">Special Leave Benefits for Women (RA No. 9710 / CSC MC No. 25, s. 2010)</option>
+            <option value="Special Emergency (Calamity) Leave (CSC MC No. 2, s. 2012, as amended)">Special Emergency (Calamity) Leave (CSC MC No. 2, s. 2012, as amended)</option>
+            <option value="Adoption Leave (R.A. No. 8552)">Adoption Leave (R.A. No. 8552)</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+<a href="{{ url_for('submit_document') }}" class="btn btn-secondary mt-3">Back</a>
+{% endblock %}

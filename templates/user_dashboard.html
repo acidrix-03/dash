@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>User Dashboard</h2>
+
+<h3>Travel Authorities</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Date</th>
+            <th>Purpose</th>
+            <th>Host</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Destination</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ta in travel_authorities %}
+        <tr>
+            <td>{{ ta[0] }}</td>
+            <td>{{ ta[1] }}</td>
+            <td>{{ ta[2] }}</td>
+            <td>{{ ta[3] }}</td>
+            <td>{{ ta[4] }}</td>
+            <td>{{ ta[5] }}</td>
+            <td>{{ ta[6] }}</td>
+            <td>{{ ta[7] }}</td>
+            <td>{{ ta[8] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>CTO Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>No. of Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cto in cto_applications %}
+        <tr>
+            <td>{{ cto[0] }}</td>
+            <td>{{ cto[1] }}</td>
+            <td>{{ cto[2] }}</td>
+            <td>{{ cto[3] }}</td>
+            <td>{{ cto[4] }}</td>
+            <td>{{ cto[5] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Leave Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>No. of Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for leave in leave_applications %}
+        <tr>
+            <td>{{ leave[0] }}</td>
+            <td>{{ leave[1] }}</td>
+            <td>{{ leave[2] }}</td>
+            <td>{{ leave[3] }}</td>
+            <td>{{ leave[4] }}</td>
+            <td>{{ leave[5] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+
+<!-- Submit Button -->
+<div class="text-center mt-4">
+    <a href="{{ url_for('submit_document') }}" class="btn btn-primary">Submit Document</a>
+</div>
+{% endblock %}

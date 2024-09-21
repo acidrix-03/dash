@@ -1,0 +1,46 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f8f9fa;
+}
+
+.container {
+    width: 50%;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    background-color: #fff;
+}
+
+h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+}
+
+label, input, select, button {
+    margin: 10px 0;
+}
+
+button {
+    align-self: center;
+    width: 100px;
+}
+
+.logo {
+    width: 100px; /* Adjust the width as needed */
+    display: block;
+    margin: 0 auto;
+    height: auto; /* Maintains the aspect ratio */
+}
+
+.btn-sm {
+    width: 150px; /* Adjust the width as needed */
+    margin-top: 20px;
+    margin-bottom: 20px;
+}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Submit Document</h2>
+<form id="documentForm">
+    <div class="form-group">
+        <label for="document_type">Document Type:</label>
+        <select id="document_type" name="document_type" class="form-control" required>
+            <option value="Travel Authority">Travel Authority</option>
+            <option value="CTO Application">CTO Application</option>
+            <option value="Leave Application">Leave Application</option>
+        </select>
+    </div>
+    
+    <!-- New Division Dropdown -->
+    <div class="form-group">
+        <label for="division">Division:</label>
+        <select id="division" name="division" class="form-control" required>
+            <option value="OSDS">OSDS</option>
+            <option value="SGOD">SGOD</option>
+            <option value="CID">CID</option>
+        </select>
+    </div>
+
+    <button type="button" class="btn btn-primary" onclick="redirectToForm()">Submit</button>
+</form>
+
+
+
+<a href="{{ url_for('logout') }}" class="btn btn-secondary mt-3">Logout</a>
+<a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary mt-3">Back to My Dashboard</a>
+<script>
+function redirectToForm() {
+    const documentType = document.getElementById('document_type').value;
+    let redirectUrl = '';
+
+    switch(documentType) {
+        case 'Travel Authority':
+            redirectUrl = "{{ url_for('travel_authority') }}";
+            break;
+        case 'CTO Application':
+            redirectUrl = "{{ url_for('cto_application') }}";
+            break;
+        case 'Leave Application':
+            redirectUrl = "{{ url_for('leave_application') }}";
+            break;
+    }
+
+    window.location.href = redirectUrl;
+}
+</script>
+{% endblock %}

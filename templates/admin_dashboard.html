@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Admin Dashboard</h2>
+
+<!-- Travel Authorities Table -->
+<h3>Travel Authorities</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Date</th>
+            <th>Purpose</th>
+            <th>Host</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Destination</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ta in travel_authorities %}
+        <tr>
+            <td>{{ ta[0] }}</td>
+            <td>{{ ta[1] }}</td>
+            <td>{{ ta[2] }}</td>
+            <td>{{ ta[3] }}</td>
+            <td>{{ ta[4] }}</td>
+            <td>{{ ta[5] }}</td>
+            <td>{{ ta[6] }}</td>
+            <td>{{ ta[7] }}</td>
+            <td>{{ ta[8] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- CTO Applications Table -->
+<h3>CTO Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>No. of Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cto in cto_applications %}
+        <tr>
+            <td>{{ cto[0] }}</td>
+            <td>{{ cto[1] }}</td>
+            <td>{{ cto[2] }}</td>
+            <td>{{ cto[3] }}</td>
+            <td>{{ cto[4] }}</td>
+            <td>{{ cto[5] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Leave Applications Table -->
+<h3>Leave Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>No. of Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for leave in leave_applications %}
+        <tr>
+            <td>{{ leave[0] }}</td>
+            <td>{{ leave[1] }}</td>
+            <td>{{ leave[2] }}</td>
+            <td>{{ leave[3] }}</td>
+            <td>{{ leave[4] }}</td>
+            <td>{{ leave[5] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Button Section -->
+<div class="mt-4 row">
+    <!-- View Users Button -->
+    <div class="col-md-4 text-center mb-3">
+        <a href="{{ url_for('view_users') }}" class="btn btn-primary btn-block">View Users</a>
+    </div>
+    <!-- Export Users to Excel Button -->
+    <div class="col-md-4 text-center mb-3">
+        <a href="{{ url_for('export_users_excel') }}" class="btn btn-success btn-block">Export Users to Excel</a>
+    </div>
+    <!-- Import Users from Excel Form -->
+    <div class="col-md-4 text-center mb-3">
+        <form method="POST" action="{{ url_for('import_users_excel') }}" enctype="multipart/form-data">
+            <div class="custom-file mb-2">
+                <input type="file" class="custom-file-input" name="file" accept=".xlsx" required>
+                <label class="custom-file-label" for="file">Choose Excel file</label>
+            </div>
+            <button type="submit" class="btn btn-warning btn-block">Import Users from Excel</button>
+        </form>
+    </div>
+</div>
+
+<!-- Clear Data Button with Modal Confirmation -->
+<div class="text-center mt-4">
+    <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#confirmDeleteModal">
+        Clear All Data
+    </button>
+</div>
+
+<!-- Modal for Delete Confirmation -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Deletion</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="deleteForm" method="POST" action="{{ url_for('clear_data') }}">
+                    <p>Are you sure you want to delete all data? This action cannot be undone.</p>
+                    <div class="form-group">
+                        <label for="admin_password">Admin Password:</label>
+                        <input type="password" id="admin_password" name="admin_password" class="form-control" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="submit" form="deleteForm" class="btn btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

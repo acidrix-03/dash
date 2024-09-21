@@ -1,0 +1,654 @@
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
+import os
+import pandas as pd
+from io import BytesIO
+from flask import send_file
+
+app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
+
+# Database setup
+def init_db():
+    with sqlite3.connect('users.db') as conn:
+        conn.execute('''CREATE TABLE IF NOT EXISTS users
+                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         name TEXT NOT NULL,
+                         username TEXT NOT NULL UNIQUE,
+                         password TEXT NOT NULL,
+                         role TEXT NOT NULL)''')
+        admin_password = generate_password_hash('12345', method='pbkdf2:sha256')
+        conn.execute('''INSERT OR IGNORE INTO users (name, username, password, role)
+                        VALUES ('Admin', 'Admin', ?, 'admin')''', (admin_password,))
+        conn.commit()
+
+    with sqlite3.connect('documents.db') as conn:
+        conn.execute('''CREATE TABLE IF NOT EXISTS travel_authority
+                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         name TEXT NOT NULL,
+                         position TEXT NOT NULL,
+                         date TEXT NOT NULL,
+                         purpose TEXT NOT NULL,
+                         host TEXT NOT NULL,
+                         start_date TEXT NOT NULL,
+                         end_date TEXT NOT NULL,
+                         destination TEXT NOT NULL)''')
+        conn.execute('''CREATE TABLE IF NOT EXISTS cto_application
+                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         name TEXT NOT NULL,
+                         position TEXT NOT NULL,
+                         days INTEGER NOT NULL,
+                         start_date TEXT NOT NULL,
+                         end_date TEXT NOT NULL)''')
+        conn.execute('''CREATE TABLE IF NOT EXISTS leave_application
+                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                         name TEXT NOT NULL,
+                         position TEXT NOT NULL,
+                         days INTEGER NOT NULL,
+                         start_date TEXT NOT NULL,
+                         end_date TEXT NOT NULL)''')
+        conn.commit()
+
+init_db()
+
+
+# Routes
+@app.route('/')
+def index():
+    return render_template('login.html')
+
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form['username']
+    password = request.form['password']
+    with sqlite3.connect('users.db') as conn:
+        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        if user and check_password_hash(user[3], password):
+            session['user_id'] = user[0]
+            session['username'] = user[2]
+            session['role'] = user[4]
+            if user[4] == 'admin':
+                return redirect(url_for('admin_dashboard'))
+            else:
+                return redirect(url_for('user_dashboard'))
+        flash('Invalid credentials')
+        return redirect(url_for('index'))
+
+@app.route('/user_dashboard')
+def user_dashboard():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    
+    user_id = session['user_id']
+    with sqlite3.connect('documents.db') as conn:
+        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
+        cto_applications = conn.execute('SELECT * FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
+        leave_applications = conn.execute('SELECT * FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
+    
+    return render_template('user_dashboard.html', travel_authorities=travel_authorities, cto_applications=cto_applications, leave_applications=leave_applications)
+
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        name = request.form['name']
+        username = request.form['username']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        if password != confirm_password:
+            flash('Passwords do not match')
+            return redirect(url_for('register'))
+        with sqlite3.connect('users.db') as conn:
+            try:
+                conn.execute('INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)', 
+                             (name, username, generate_password_hash(password, method='pbkdf2:sha256'), 'user'))
+                conn.commit()
+                flash('Registration successful')
+                return redirect(url_for('index'))
+            except sqlite3.IntegrityError:
+                flash('Username already exists')
+                return redirect(url_for('register'))
+    return render_template('register.html')
+
+@app.route('/submit_document', methods=['GET', 'POST'])
+def submit_document():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    if request.method == 'POST':
+        name = request.form['name']
+        position = request.form['position']
+        salary = request.form['salary']
+        document_type = request.form['document_type']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('INSERT INTO documents (name, position, salary, document_type, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)', 
+                         (name, position, salary, document_type, start_date, end_date))
+            conn.commit()
+        flash('Document submitted successfully')
+        return redirect(url_for('submit_document'))
+    return render_template('submit_document.html')
+
+@app.route('/admin_dashboard')
+def admin_dashboard():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
+    with sqlite3.connect('documents.db') as conn:
+        travel_authorities = conn.execute('SELECT * FROM travel_authority').fetchall()
+        cto_applications = conn.execute('SELECT * FROM cto_application').fetchall()
+        leave_applications = conn.execute('SELECT * FROM leave_application').fetchall()
+    return render_template('admin_dashboard.html', travel_authorities=travel_authorities, cto_applications=cto_applications, leave_applications=leave_applications)
+
+
+@app.route('/view_users')
+def view_users():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
+    with sqlite3.connect('users.db') as conn:
+        users = conn.execute('SELECT * FROM users').fetchall()
+    return render_template('view_users.html', users=users)
+
+@app.route('/clear_data', methods=['POST'])
+def clear_data():
+    admin_password = request.form['admin_password']
+    with sqlite3.connect('users.db') as conn:
+        admin_user = conn.execute('SELECT * FROM users WHERE username = ?', ('Admin',)).fetchone()
+        if admin_user and check_password_hash(admin_user[3], admin_password):
+            with sqlite3.connect('documents.db') as doc_conn:
+                doc_conn.execute('DELETE FROM documents')
+                doc_conn.commit()
+            flash('All data has been cleared successfully', 'success')
+        else:
+            flash('Invalid admin password', 'danger')
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/travel_authority', methods=['GET', 'POST'])
+def travel_authority():
+    if request.method == 'POST':
+        name = request.form['name']
+        position = request.form['position']
+        date = request.form['date']
+        purpose = request.form['purpose']
+        host = request.form['host']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        destination = request.form['destination']
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('''INSERT INTO travel_authority (name, position, date, purpose, host, start_date, end_date, destination)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', (name, position, date, purpose, host, start_date, end_date, destination))
+            conn.commit()
+        flash('Travel Authority submitted successfully')
+        return redirect(url_for('submit_document'))
+    return render_template('travel_authority.html')
+
+@app.route('/cto_application', methods=['GET', 'POST'])
+def cto_application():
+    if request.method == 'POST':
+        name = request.form['name']
+        position = request.form['position']
+        days = request.form['days']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('''INSERT INTO cto_application (name, position, days, start_date, end_date)
+                            VALUES (?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date))
+            conn.commit()
+        flash('CTO Application submitted successfully')
+        return redirect(url_for('submit_document'))
+    return render_template('cto_application.html')
+
+@app.route('/leave_application', methods=['GET', 'POST'])
+def leave_application():
+    if request.method == 'POST':
+        name = request.form['name']
+        position = request.form['position']
+        days = request.form['days']
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date)
+                            VALUES (?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date))
+            conn.commit()
+        flash('Leave Application submitted successfully')
+        return redirect(url_for('submit_document'))
+    return render_template('leave_application.html')
+
+@app.route('/export_excel')
+def export_excel():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    with sqlite3.connect('documents.db') as conn:
+        travel_authorities = pd.read_sql_query('SELECT * FROM travel_authority', conn)
+        cto_applications = pd.read_sql_query('SELECT * FROM cto_application', conn)
+        leave_applications = pd.read_sql_query('SELECT * FROM leave_application', conn)
+
+    # Create a Pandas Excel writer using BytesIO as the file-like object
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        travel_authorities.to_excel(writer, sheet_name='Travel Authorities', index=False)
+        cto_applications.to_excel(writer, sheet_name='CTO Applications', index=False)
+        leave_applications.to_excel(writer, sheet_name='Leave Applications', index=False)
+
+    output.seek(0)
+    return send_file(output, download_name='admin_data.xlsx', as_attachment=True)
+
+
+if __name__ == '__main__':
+    app.run(debug=True, host='0.0.0.0')
+
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Admin Dashboard</h2>
+
+<h3>Travel Authorities</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Date</th>
+            <th>Purpose</th>
+            <th>Host</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Destination</th>
+            <th>Entered By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ta in travel_authorities %}
+        <tr>
+            <td>{{ ta[0] }}</td>
+            <td>{{ ta[1] }}</td>
+            <td>{{ ta[2] }}</td>
+            <td>{{ ta[3] }}</td>
+            <td>{{ ta[4] }}</td>
+            <td>{{ ta[5] }}</td>
+            <td>{{ ta[6] }}</td>
+            <td>{{ ta[7] }}</td>
+            <td>{{ ta[8] }}</td>
+            <td>{{ ta[9] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>CTO Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>No. of Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Entered By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cto in cto_applications %}
+        <tr>
+            <td>{{ cto[0] }}</td>
+            <td>{{ cto[1] }}</td>
+            <td>{{ cto[2] }}</td>
+            <td>{{ cto[3] }}</td>
+            <td>{{ cto[4] }}</td>
+            <td>{{ cto[5] }}</td>
+            <td>{{ cto[6] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Leave Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>No. of Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Entered By</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for leave in leave_applications %}
+        <tr>
+            <td>{{ leave[0] }}</td>
+            <td>{{ leave[1] }}</td>
+            <td>{{ leave[2] }}</td>
+            <td>{{ leave[3] }}</td>
+            <td>{{ leave[4] }}</td>
+            <td>{{ leave[5] }}</td>
+            <td>{{ leave[6] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Button to trigger modal -->
+<div class="text-center mt-4">
+    <button type="button" class="btn btn-danger btn-sm" data-toggle="modal" data-target="#confirmDeleteModal">
+        Clear All Data
+    </button>
+</div>
+
+<div class="text-center mt-4"></div>
+    <a href="{{ url_for('export_excel') }}" class="btn btn-success btn-sm">Export to Excel</a>
+</div>
+
+<!-- Modal -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmDeleteModalLabel">Confirm Deletion</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="deleteForm" method="POST" action="{{ url_for('clear_data') }}">
+                    <p>Are you sure you want to delete all data? This action cannot be undone.</p>
+                    <div class="form-group">
+                        <label for="admin_password">Admin Password:</label>
+                        <input type="password" id="admin_password" name="admin_password" class="form-control" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="submit" form="deleteForm" class="btn btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Submission App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">DocApp</a>
+        <div class="collapse navbar-collapse">
+            <ul class="navbar-nav ml-auto">
+                {% if session.get('username') %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
+
+
+{% extends "base.html" %}
+{% block content %}
+<h2>CTO Application</h2>
+<form method="POST" action="{{ url_for('cto_application') }}">
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="position">Position:</label>
+        <input type="text" id="position" name="position" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="days">No. of Days applied:</label>
+        <input type="number" id="days" name="days" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+<a href="{{ url_for('submit_document') }}" class="btn btn-secondary mt-3">Back</a>
+{% endblock %}
+
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Leave Application</h2>
+<form method="POST" action="{{ url_for('leave_application') }}">
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="position">Position:</label>
+        <input type="text" id="position" name="position" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="days">No. of Days applied:</label>
+        <input type="number" id="days" name="days" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="leave_type">Type of Leave to be Availed:</label>
+        <select id="leave_type" name="leave_type" class="form-control" required>
+            <option value="Vacation Leave (Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Vacation Leave (Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Mandatory/Forced Leave(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Mandatory/Forced Leave(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Sick Leave  (Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Sick Leave  (Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Maternity Leave (R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)">Maternity Leave (R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)</option>
+            <option value="Paternity Leave (R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)">Paternity Leave (R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)</option>
+            <option value="Special Privilege Leave (Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Special Privilege Leave (Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Solo Parent Leave (RA No. 8972 / CSC MC No. 8, s. 2004)">Solo Parent Leave (RA No. 8972 / CSC MC No. 8, s. 2004)</option>
+            <option value="Study Leave (Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Study Leave (Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="10-Day VAWC Leave (RA No. 9262 / CSC MC No. 15, s. 2005)">10-Day VAWC Leave (RA No. 9262 / CSC MC No. 15, s. 2005)</option>
+            <option value="Rehabilitation Privilege (Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Rehabilitation Privilege (Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
+            <option value="Special Leave Benefits for Women (RA No. 9710 / CSC MC No. 25, s. 2010)">Special Leave Benefits for Women (RA No. 9710 / CSC MC No. 25, s. 2010)</option>
+            <option value="Special Emergency (Calamity) Leave (CSC MC No. 2, s. 2012, as amended)">Special Emergency (Calamity) Leave (CSC MC No. 2, s. 2012, as amended)</option>
+            <option value="Adoption Leave (R.A. No. 8552)">Adoption Leave (R.A. No. 8552)</option>
+        </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+<a href="{{ url_for('submit_document') }}" class="btn btn-secondary mt-3">Back</a>
+{% endblock %}
+
+
+{% extends "base.html" %}
+{% block content %}
+<img src="{{ url_for('static', filename='logo.png') }}" alt="Schools Division Calbayog City Logo" class="logo">
+<h2>Schools Division of Calbayog City</h2>
+<h2>Login</h2>
+<form method="POST" action="{{ url_for('login') }}">
+    <div class="form-group">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Login</button>
+</form>
+<a href="{{ url_for('register') }}">Register</a>
+{% endblock %}
+
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Register</h2>
+<form method="POST" action="{{ url_for('register') }}">
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="confirm_password">Confirm Password:</label>
+        <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Register</button>
+</form>
+{% endblock %}
+
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Submit Document</h2>
+<form id="documentForm">
+    <div class="form-group">
+        <label for="document_type">Document Type:</label>
+        <select id="document_type" name="document_type" class="form-control" required>
+            <option value="Travel Authority">Travel Authority</option>
+            <option value="CTO Application">CTO Application</option>
+            <option value="Leave Application">Leave Application</option>
+        </select>
+    </div>
+    <button type="button" class="btn btn-primary" onclick="redirectToForm()">Submit</button>
+</form>
+<a href="{{ url_for('logout') }}" class="btn btn-secondary mt-3">Logout</a>
+<a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary mt-3">Back to My Dashboard</a>
+<script>
+function redirectToForm() {
+    const documentType = document.getElementById('document_type').value;
+    let redirectUrl = '';
+
+    switch(documentType) {
+        case 'Travel Authority':
+            redirectUrl = "{{ url_for('travel_authority') }}";
+            break;
+        case 'CTO Application':
+            redirectUrl = "{{ url_for('cto_application') }}";
+            break;
+        case 'Leave Application':
+            redirectUrl = "{{ url_for('leave_application') }}";
+            break;
+    }
+
+    window.location.href = redirectUrl;
+}
+</script>
+{% endblock %}
+
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Travel Authority</h2>
+<form method="POST" action="{{ url_for('travel_authority') }}">
+    <div class="form-group">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="position">Position:</label>
+        <input type="text" id="position" name="position" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="date">Date:</label>
+        <input type="date" id="date" name="date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="purpose">Purpose:</label>
+        <input type="text" id="purpose" name="purpose" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="host">Host of Activity:</label>
+        <input type="text" id="host" name="host" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="destination">Destination:</label>
+        <input type="text" id="destination" name="destination" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+<a href="{{ url_for('submit_document') }}" class="btn btn-secondary mt-3">Back</a>
+{% endblock %}
+
+
+{% extends "base.html" %}
+{% block content %}
+<h2>View Users</h2>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Username</th>
+            <th>Role</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for user in users %}
+        <tr>
+            <td>{{ user[0] }}</td>
+            <td>{{ user[1] }}</td>
+            <td>{{ user[2] }}</td>
+            <td>{{ user[4] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
+
+
