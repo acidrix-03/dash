@@ -1,0 +1,13 @@
+please debug my code. 
+
+Recommender Dashboard: 
+All (CTO, Leave, and Travel Authority) applications submitted by the users should reflect on the page.
+Add a "Recommend for Approval" button 
+upon clicking the button, it will change its color, change text to "Recommended", and will not be clickable anymore.
+The (CTO, Leave, or Travel Authority) applications will now be sent to the "Approver Dashboard.
+
+Approver Dashboard:
+Recommended (CTO, Leave, and Travel Authority) applications will be reflected here
+Add a "Approve Application" button 
+upon clicking the button, it will change its color, change text to "Approved", and will not be clickable anymore.
+The (CTO, Leave, or Travel Authority) applications will now be sent to the "Approver Dashboard.

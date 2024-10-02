@@ -1,46 +1,27 @@
 body {
-    font-family: Arial, sans-serif;
-    background-color: #f8f9fa;
+    background-color: #f8f9fa; /* Light gray background */
 }
-
-.container {
-    width: 50%;
-    margin: auto;
-    padding: 20px;
-    border: 1px solid #ccc;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-    background-color: #fff;
+.navbar {
+    margin-bottom: 20px; /* Spacing below navbar */
 }
-
-h2 {
-    text-align: center;
-    margin-bottom: 20px;
+.table {
+    margin-top: 20px; /* Spacing above table */
+    border-radius: 0.5rem; /* Rounded corners */
+    overflow: hidden; /* Prevents overflow from rounded corners */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Shadow effect */
 }
-
-form {
-    display: flex;
-    flex-direction: column;
+.table th {
+    background-color: #007bff; /* Bootstrap primary color */
+    color: white; /* White text for header */
 }
-
-label, input, select, button {
-    margin: 10px 0;
+.table tbody tr:hover {
+    background-color: #e9ecef; /* Light gray hover effect */
 }
-
-button {
-    align-self: center;
-    width: 100px;
+.btn-custom {
+    background-color: #007bff; /* Primary button color */
+    color: white; /* White text */
+    border-radius: 0.5rem; /* Rounded corners */
 }
-
-.logo {
-    width: 100px; /* Adjust the width as needed */
-    display: block;
-    margin: 0 auto;
-    height: auto; /* Maintains the aspect ratio */
-}
-
-.btn-sm {
-    width: 150px; /* Adjust the width as needed */
-    margin-top: 20px;
-    margin-bottom: 20px;
+.btn-custom:hover {
+    background-color: #0056b3; /* Darker shade on hover */
 }

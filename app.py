@@ -5,6 +5,8 @@ import os
 import pandas as pd
 from io import BytesIO
 from flask_babel import Babel
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify
+
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
@@ -42,31 +44,44 @@ def init_db():
         print(f"General error: {e}")
 
     with sqlite3.connect('documents.db') as conn:
-        conn.execute('''CREATE TABLE IF NOT EXISTS travel_authority
-                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         name TEXT NOT NULL,
-                         position TEXT NOT NULL,
-                         date TEXT NOT NULL,
-                         purpose TEXT NOT NULL,
-                         host TEXT NOT NULL,
-                         start_date TEXT NOT NULL,
-                         end_date TEXT NOT NULL,
-                         destination TEXT NOT NULL)''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS cto_application
-                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         name TEXT NOT NULL,
-                         position TEXT NOT NULL,
-                         days INTEGER NOT NULL,
-                         start_date TEXT NOT NULL,
-                         end_date TEXT NOT NULL)''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS leave_application
-                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         name TEXT NOT NULL,
-                         position TEXT NOT NULL,
-                         days INTEGER NOT NULL,
-                         start_date TEXT NOT NULL,
-                         end_date TEXT NOT NULL)''')
-        conn.commit()
+       with sqlite3.connect('documents.db') as conn:
+        # Create CTO Application table
+        conn.execute('''CREATE TABLE IF NOT EXISTS cto_application (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            position TEXT NOT NULL,
+            days INTEGER NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            recommending_approval TEXT DEFAULT NULL, 
+            approval_status TEXT DEFAULT 'Pending'   
+        )''')
+
+        # Create Leave Application table
+        conn.execute('''CREATE TABLE IF NOT EXISTS leave_application (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            position TEXT NOT NULL,
+            days INTEGER NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            recommending_approval TEXT DEFAULT NULL, 
+            approval_status TEXT DEFAULT 'Pending'   
+        )''')
+
+        # Create Travel Authority table
+        conn.execute('''CREATE TABLE IF NOT EXISTS travel_authority (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            position TEXT NOT NULL,
+            purpose TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            destination TEXT NOT NULL,
+            recommending_approval TEXT DEFAULT NULL, 
+            approval_status TEXT DEFAULT 'Pending'   
+        )''')
+    print("Database initialized successfully")
 
 init_db()
 
@@ -81,20 +96,27 @@ def index():
 
 @app.route('/login', methods=['POST'])
 def login():
-    username = request.form['username']
+    name = request.form['username']
     password = request.form['password']
     with sqlite3.connect('users.db') as conn:
-        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        user = conn.execute('SELECT * FROM users WHERE name = ?', (name,)).fetchone()
         if user and check_password_hash(user[3], password):
             session['user_id'] = user[0]
             session['username'] = user[2]
             session['role'] = user[4]
+
+            # Redirect based on user role
             if user[4] == 'admin':
                 return redirect(url_for('admin_dashboard'))
+            elif user[4] == 'approver':
+                return redirect(url_for('approver_dashboard'))
+            elif user[4] == 'recommender':
+                return redirect(url_for('recommender_dashboard'))  # New redirect for recommender
             else:
                 return redirect(url_for('user_dashboard'))
-        flash('Invalid credentials')
-        return redirect(url_for('index'))
+        else:
+            flash('Invalid credentials')
+            return redirect(url_for('index'))
 
 @app.route('/user_dashboard')
 def user_dashboard():
@@ -171,11 +193,36 @@ def view_users():
     if 'user_id' not in session or session.get('role') != 'admin':
         flash('Access denied')
         return redirect(url_for('index'))
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
+
+    search = request.args.get('search', '')
+    letter = request.args.get('letter', '')
+    page = request.args.get('page', 1, type=int)  # Current page number (default is 1)
+    per_page = 20  # Number of users per page
+
+    query = 'SELECT * FROM users WHERE 1=1'
+    params = []
+
+    if search:
+        query += ' AND (name LIKE ? OR username LIKE ?)'
+        params.extend([f'%{search}%', f'%{search}%'])
+
+    if letter:
+        query += ' AND (name LIKE ? OR username LIKE ?)'
+        params.extend([f'{letter}%', f'{letter}%'])
+
+    query += ' LIMIT ? OFFSET ?'
+    params.extend([per_page, (page - 1) * per_page])
+
     with sqlite3.connect('users.db') as conn:
-        users = conn.execute('SELECT * FROM users LIMIT ? OFFSET ?', (per_page, (page - 1) * per_page)).fetchall()
-    return render_template('view_users.html', users=users)
+        total_users = conn.execute('SELECT COUNT(*) FROM users WHERE 1=1').fetchone()[0]
+        users = conn.execute(query, params).fetchall()
+
+    # Calculate total pages
+    total_pages = (total_users + per_page - 1) // per_page
+
+    return render_template('view_users.html', users=users, page=page, total_pages=total_pages, search=search, letter=letter)
+
+
 
 @app.route('/clear_data', methods=['POST'])
 def clear_data():
@@ -184,12 +231,15 @@ def clear_data():
         admin_user = conn.execute('SELECT * FROM users WHERE username = ?', ('Admin',)).fetchone()
         if admin_user and check_password_hash(admin_user[3], admin_password):
             with sqlite3.connect('documents.db') as doc_conn:
-                doc_conn.execute('DELETE FROM documents')
+                doc_conn.execute('DELETE FROM cto_application')
+                doc_conn.execute('DELETE FROM leave_application')
+                doc_conn.execute('DELETE FROM travel_authority')
                 doc_conn.commit()
             flash('All data has been cleared successfully', 'success')
         else:
             flash('Invalid admin password', 'danger')
     return redirect(url_for('admin_dashboard'))
+
 
 @app.route('/export_excel')
 def export_excel():
@@ -233,7 +283,8 @@ def import_users_excel():
     try:
         users_df = pd.read_excel(file)
         
-        # Hash the passwords
+        # Convert all passwords to strings before hashing
+        users_df['password'] = users_df['password'].astype(str)
         users_df['password'] = users_df['password'].apply(lambda x: generate_password_hash(x, method='pbkdf2:sha256'))
 
         with sqlite3.connect('users.db') as conn:
@@ -251,6 +302,7 @@ def import_users_excel():
         return redirect(url_for('admin_dashboard'))
 
 
+
 @app.route('/cto_application', methods=['GET', 'POST'])
 def cto_application():
     if request.method == 'POST':
@@ -262,14 +314,15 @@ def cto_application():
         user_id = session['user_id']  # Assuming user is logged in
         
         with sqlite3.connect('documents.db') as conn:
-            conn.execute('''INSERT INTO cto_application (name, position, days, start_date, end_date, user_id)
-                            VALUES (?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, user_id))
+            conn.execute('''INSERT INTO cto_application (name, position, days, start_date, end_date, user_id, recommending_approval)
+                            VALUES (?, ?, ?, ?, ?, ?, NULL)''', (name, position, days, start_date, end_date, user_id))
             conn.commit()
         
         flash('CTO Application submitted successfully!')
         return redirect(url_for('user_dashboard'))
     
     return render_template('cto_application.html')
+
 
 
 @app.route('/leave_application', methods=['GET', 'POST'])
@@ -284,22 +337,22 @@ def leave_application():
         user_id = session['user_id']  # Assuming user is logged in
         
         with sqlite3.connect('documents.db') as conn:
-            conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, leave_type, user_id))
+            conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, NULL)''', (name, position, days, start_date, end_date, leave_type, user_id))
             conn.commit()
+            print("Leave application inserted successfully")
         
         flash('Leave Application submitted successfully!')
         return redirect(url_for('user_dashboard'))
     
     return render_template('leave_application.html')
 
-
 @app.route('/travel_authority', methods=['GET', 'POST'])
 def travel_authority():
     if request.method == 'POST':
         name = request.form['name']
         position = request.form['position']
-        date = request.form['date']
+        date = request.form.get('date', '')  # Use get() to provide a default value
         purpose = request.form['purpose']
         host = request.form['host']
         start_date = request.form['start_date']
@@ -308,8 +361,8 @@ def travel_authority():
         user_id = session['user_id']  # Assuming user is logged in
         
         with sqlite3.connect('documents.db') as conn:
-            conn.execute('''INSERT INTO travel_authority (name, position, date, purpose, host, start_date, end_date, destination, user_id)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', (name, position, date, purpose, host, start_date, end_date, destination, user_id))
+            conn.execute('''INSERT INTO travel_authority (name, position, date, purpose, host, start_date, end_date, destination, user_id, recommending_approval)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)''', (name, position, date, purpose, host, start_date, end_date, destination, user_id))
             conn.commit()
         
         flash('Travel Authority submitted successfully!')
@@ -317,7 +370,181 @@ def travel_authority():
     
     return render_template('travel_authority.html')
 
+@app.route('/change_role/<int:user_id>', methods=['POST'])
+def change_role(user_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
 
+    new_role = request.form['role']
+    with sqlite3.connect('users.db') as conn:
+        conn.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
+        conn.commit()
+
+    flash('User role updated successfully', 'success')
+    return redirect(url_for('view_users'))
+
+@app.route('/change_password/<int:user_id>', methods=['GET', 'POST'])
+def change_password(user_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        if new_password != confirm_password:
+            flash('Passwords do not match')
+            return redirect(url_for('change_password', user_id=user_id))
+
+        hashed_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+        with sqlite3.connect('users.db') as conn:
+            conn.execute('UPDATE users SET password = ? WHERE id = ?', (hashed_password, user_id))
+            conn.commit()
+        flash('Password updated successfully', 'success')
+        return redirect(url_for('view_users'))
+
+    return render_template('change_password.html', user_id=user_id)
+
+@app.route('/document_tracker')
+def document_tracker():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    
+    # If you're not querying the documents, just render the page
+    return render_template('document_tracker.html')
+
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
+def delete_user(user_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    try:
+        with sqlite3.connect('users.db') as user_conn:
+            user = user_conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+            if user:
+                user_conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+                user_conn.commit()
+
+        with sqlite3.connect('documents.db') as doc_conn:
+            doc_conn.execute('DELETE FROM travel_authority WHERE user_id = ?', (user_id,))
+            doc_conn.execute('DELETE FROM cto_application WHERE user_id = ?', (user_id,))
+            doc_conn.execute('DELETE FROM leave_application WHERE user_id = ?', (user_id,))
+            doc_conn.commit()
+
+        flash('User and all associated data deleted successfully', 'success')
+    except sqlite3.Error as e:
+        flash(f"An error occurred: {e}", 'danger')
+
+    return redirect(url_for('view_users'))
+
+@app.route('/change_password_user', methods=['GET', 'POST'])
+def change_password_user():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        current_password = request.form['current_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+
+        if new_password != confirm_password:
+            flash('New passwords do not match')
+            return redirect(url_for('change_password_user'))
+
+        with sqlite3.connect('users.db') as conn:
+            user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+            if user and check_password_hash(user[3], current_password):
+                hashed_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+                conn.execute('UPDATE users SET password = ? WHERE id = ?', (hashed_password, session['user_id']))
+                conn.commit()
+                flash('Password updated successfully', 'success')
+                return redirect(url_for('user_dashboard'))
+            else:
+                flash('Current password is incorrect')
+                return redirect(url_for('change_password_user'))
+
+    return render_template('change_password_user.html')
+
+@app.route('/approver_dashboard')
+def approver_dashboard():
+    if 'user_id' not in session or session.get('role') != 'approver':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    with sqlite3.connect('documents.db') as conn:
+        cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+        leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+
+    return render_template(
+        'approver_dashboard.html',
+        cto_applications=cto_applications,
+        leave_applications=leave_applications,
+        travel_authorities=travel_authorities
+    )
+
+
+@app.route('/recommend_approval/<int:app_id>', methods=['POST'])
+def recommend_approval(app_id):
+    if 'user_id' not in session or session.get('role') != 'recommender':
+        return jsonify({'error': 'Access denied'}), 403
+
+    application_type = request.form['application_type']
+
+    with sqlite3.connect('documents.db') as conn:
+        if application_type == 'cto':
+            conn.execute('UPDATE cto_application SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+        elif application_type == 'leave':
+            conn.execute('UPDATE leave_application SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+        elif application_type == 'travel_authority':
+            conn.execute('UPDATE travel_authority SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+        conn.commit()
+
+    return jsonify({'success': True})
+
+
+
+@app.route('/approve_application/<int:app_id>', methods=['POST'])
+def approve_application(app_id):
+    if 'user_id' not in session or session.get('role') != 'approver':
+        return jsonify({'error': 'Access denied'}), 403
+
+    application_type = request.form['application_type']
+
+    with sqlite3.connect('documents.db') as conn:
+        if application_type == 'cto':
+            conn.execute('UPDATE cto_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+        elif application_type == 'leave':
+            conn.execute('UPDATE leave_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+        elif application_type == 'travel_authority':
+            conn.execute('UPDATE travel_authority SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+        conn.commit()
+
+    return jsonify({'success': True})
+
+
+
+@app.route('/recommender_dashboard')
+def recommender_dashboard():
+    if 'user_id' not in session or session.get('role') != 'recommender':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    with sqlite3.connect('documents.db') as conn:
+        cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval IS NULL').fetchall()
+        leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval IS NULL').fetchall()
+        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval IS NULL').fetchall()
+
+    return render_template(
+        'recommender_dashboard.html',
+        cto_applications=cto_applications,
+        leave_applications=leave_applications,
+        travel_authorities=travel_authorities
+    )
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))  # Get the PORT from environment, default to 5000

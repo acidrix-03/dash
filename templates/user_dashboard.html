@@ -1,94 +1,247 @@
-{% extends "base.html" %}
-{% block content %}
-<h2>User Dashboard</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar {
+            background-color: #007bff;
+            color: white;
+        }
+        .navbar .nav-link {
+            color: white;
+        }
+        .navbar .nav-link:hover {
+            color: #f8f9fa;
+        }
+        .table {
+            background-color: white;
+            margin-top: 20px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .table th {
+            background-color: #007bff;
+            color: white;
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef;
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.5rem;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
+        }
+        .btn-approve {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-approve:hover {
+            background-color: #218838;
+        }
+        .btn-recommend {
+            background-color: #17a2b8;
+            color: white;
+        }
+        .btn-recommend:hover {
+            background-color: #117a8b;
+        }
+        .btn-submit {
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <a class="navbar-brand" href="#">
+            {% if session.get('username') %}
+                Hi, {{ session['username'] }}
+            {% else %}
+                User Dashboard
+            {% endif %}
+        </a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Document</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Application</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                </li>
+            </ul>
+        </div>
+    </nav>
 
-<h3>Travel Authorities</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Date</th>
-            <th>Purpose</th>
-            <th>Host</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Destination</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for ta in travel_authorities %}
-        <tr>
-            <td>{{ ta[0] }}</td>
-            <td>{{ ta[1] }}</td>
-            <td>{{ ta[2] }}</td>
-            <td>{{ ta[3] }}</td>
-            <td>{{ ta[4] }}</td>
-            <td>{{ ta[5] }}</td>
-            <td>{{ ta[6] }}</td>
-            <td>{{ ta[7] }}</td>
-            <td>{{ ta[8] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <div class="container mt-5">
+        <h2 class="text-center">User Dashboard</h2>
 
-<h3>CTO Applications</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>No. of Days</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for cto in cto_applications %}
-        <tr>
-            <td>{{ cto[0] }}</td>
-            <td>{{ cto[1] }}</td>
-            <td>{{ cto[2] }}</td>
-            <td>{{ cto[3] }}</td>
-            <td>{{ cto[4] }}</td>
-            <td>{{ cto[5] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <!-- CTO Applications Table -->
+        <h4>CTO Applications</h4>
+        <table class="table table-striped table-hover table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Application ID</th>
+                    <th>Document Name</th>
+                    <th>Recommending Approval</th>
+                    <th>Approved</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in cto_applications %}
+                <tr>
+                    <td>{{ app[0] }}</td>
+                    <td>CTO Application</td>
+                    <td>
+                        {% if app[6] == 'Pending' and session['role'] == 'approver' %}
+                        <form action="{{ url_for('recommend_approval', app_id=app[0]) }}" method="POST">
+                            <input type="checkbox" name="recommending_approval" value="Recommended">
+                            <button type="submit" class="btn btn-primary btn-sm">Recommend</button>
+                        </form>
+                        {% else %}
+                            {{ app[6] }} <br>
+                            {% if app[7] %}{{ app[7] }}{% else %}No recommendation date{% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if app[8] == 'Pending' and session['role'] == 'approver' %}
+                        <form action="{{ url_for('approve_application', app_id=app[0]) }}" method="POST">
+                            <input type="checkbox" name="approval_status" value="Approved">
+                            <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                        </form>
+                        {% else %}
+                            {{ app[8] }} <br>
+                            {% if app[9] %}{{ app[9] }}{% else %}No approval date{% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <!-- Other actions like view, delete, etc. -->
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-<h3>Leave Applications</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>No. of Days</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for leave in leave_applications %}
-        <tr>
-            <td>{{ leave[0] }}</td>
-            <td>{{ leave[1] }}</td>
-            <td>{{ leave[2] }}</td>
-            <td>{{ leave[3] }}</td>
-            <td>{{ leave[4] }}</td>
-            <td>{{ leave[5] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <!-- Leave Applications Table -->
+        <h4>Leave Applications</h4>
+        <table class="table table-striped table-hover table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Application ID</th>
+                    <th>Document Name</th>
+                    <th>Recommending Approval</th>
+                    <th>Approved</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in leave_applications %}
+                <tr>
+                    <td>{{ app[0] }}</td>
+                    <td>Leave Application</td>
+                    <td>
+                        {% if app[6] == 'Pending' and session['role'] == 'approver' %}
+                        <form action="{{ url_for('recommend_approval_leave', app_id=app[0]) }}" method="POST">
+                            <input type="checkbox" name="recommending_approval" value="Recommended">
+                            <button type="submit" class="btn btn-primary btn-sm">Recommend</button>
+                        </form>
+                        {% else %}
+                            {{ app[6] }} <br>
+                            {% if app[7] %}{{ app[7] }}{% else %}No recommendation date{% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if app[8] == 'Pending' and session['role'] == 'approver' %}
+                        <form action="{{ url_for('approve_application_leave', app_id=app[0]) }}" method="POST">
+                            <input type="checkbox" name="approval_status" value="Approved">
+                            <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                        </form>
+                        {% else %}
+                            {{ app[8] }} <br>
+                            {% if app[9] %}{{ app[9] }}{% else %}No approval date{% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <!-- Other actions like view, delete, etc. -->
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
+        <!-- Travel Authority Table -->
+        <h4>Travel Authority Applications</h4>
+        <table class="table table-striped table-hover table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>Application ID</th>
+                    <th>Document Name</th>
+                    <th>Recommending Approval</th>
+                    <th>Approved</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in travel_authorities %}
+                <tr>
+                    <td>{{ app[0] }}</td>
+                    <td>Travel Authority</td>
+                    <td>
+                        {% if app[6] == 'Pending' and session['role'] == 'approver' %}
+                        <form action="{{ url_for('recommend_approval_travel', app_id=app[0]) }}" method="POST">
+                            <input type="checkbox" name="recommending_approval" value="Recommended">
+                            <button type="submit" class="btn btn-primary btn-sm">Recommend</button>
+                        </form>
+                        {% else %}
+                            {{ app[6] }} <br>
+                            {% if app[7] %}{{ app[7] }}{% else %}No recommendation date{% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if app[8] == 'Pending' and session['role'] == 'approver' %}
+                        <form action="{{ url_for('approve_application_travel', app_id=app[0]) }}" method="POST">
+                            <input type="checkbox" name="approval_status" value="Approved">
+                            <button type="submit" class="btn btn-success btn-sm">Approve</button>
+                        </form>
+                        {% else %}
+                            {{ app[8] }} <br>
+                            {% if app[9] %}{{ app[9] }}{% else %}No approval date{% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <!-- Other actions like view, delete, etc. -->
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
 
-<!-- Submit Button -->
-<div class="text-center mt-4">
-    <a href="{{ url_for('submit_document') }}" class="btn btn-primary">Submit Document</a>
-</div>
-{% endblock %}
+        <!-- Add Submit Buttons -->
+        <div class="text-center my-4">
+            <a href="{{ url_for('submit_document') }}" class="btn btn-primary btn-submit">Submit Document</a>
+            <a href="{{ url_for('document_tracker') }}" class="btn btn-primary btn-submit">Submit Application</a>
+        </div>        
+
+        <a href="{{ url_for('logout') }}" class="btn btn-secondary mt-3">Logout</a>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

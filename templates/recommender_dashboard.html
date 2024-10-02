@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recommender Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .highlight {
+            background-color: #fff3cd; /* Light yellow background */
+        }
+        .btn-disabled {
+            pointer-events: none;
+            opacity: 0.65;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Recommender Dashboard</h2>
+
+        <!-- CTO Applications Table -->
+        <h3>CTO Applications</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Recommending Approval</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in cto_applications %}
+                <tr id="cto-{{ app[0] }}">
+                    <td>{{ app[0] }}</td>
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[2] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[4] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[6] }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
+                            <input type="hidden" name="application_type" value="cto">
+                            <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Leave Applications Table -->
+        <h3>Leave Applications</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Recommending Approval</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in leave_applications %}
+                <tr id="leave-{{ app[0] }}">
+                    <td>{{ app[0] }}</td>
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[2] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[4] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[6] }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
+                            <input type="hidden" name="application_type" value="leave">
+                            <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Travel Authorities Table -->
+        <h3>Travel Authorities</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Purpose</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Destination</th>
+                    <th>Recommending Approval</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in travel_authorities %}
+                <tr id="travel-{{ app[0] }}">
+                    <td>{{ app[0] }}</td>
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[2] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[6] }}</td>
+                    <td>{{ app[7] }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
+                            <input type="hidden" name="application_type" value="travel_authority">
+                            <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.recommend-form').on('submit', function(event) {
+                event.preventDefault();
+                var form = $(this);
+                var row = form.closest('tr');
+                var button = form.find('.recommend-btn');
+
+                $.ajax({
+                    type: 'POST',
+                    url: form.attr('action'),
+                    data: form.serialize(),
+                    success: function(response) {
+                        if (response.success) {
+                            row.addClass('highlight');
+                            button.removeClass('btn-warning').addClass('btn-secondary btn-disabled').text('Recommended');
+                        } else {
+                            alert('Error: ' + response.error);
+                        }
+                    },
+                    error: function() {
+                        alert('An error occurred. Please try again.');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

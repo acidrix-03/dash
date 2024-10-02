@@ -1,18 +1,54 @@
-{% extends "base.html" %}
-{% block content %}
-<img src="{{ url_for('static', filename='logo.png') }}" alt="Schools Division Calbayog City Logo" class="logo">
-<h2>Schools Division of Calbayog City</h2>
-<h2>Login</h2>
-<form method="POST" action="{{ url_for('login') }}">
-    <div class="form-group">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" class="form-control" required>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Submission App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Schools Division of Calbayog City: Tracker</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                {% if session.get('username') %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <!-- Division Logo -->
+        <div class="text-center">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Division Logo" class="mb-4" style="max-width: 150px;">
+        </div>
+        
+        <h2 class="text-center">Login</h2>
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group">
+                <label for="username">Employee ID:</label>
+                <input type="text" id="username" name="username" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+        <a href="{{ url_for('register') }}" class="btn btn-secondary btn-block mt-3">Register</a>
     </div>
-    <div class="form-group">
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" class="form-control" required>
-    </div>
-    <button type="submit" class="btn btn-primary">Login</button>
-</form>
-<a href="{{ url_for('register') }}">Register</a>
-{% endblock %}
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

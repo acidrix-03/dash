@@ -5,6 +5,8 @@ import os
 import pandas as pd
 from io import BytesIO
 from flask_babel import Babel
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify
+
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
@@ -42,31 +44,44 @@ def init_db():
         print(f"General error: {e}")
 
     with sqlite3.connect('documents.db') as conn:
-        conn.execute('''CREATE TABLE IF NOT EXISTS travel_authority
-                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         name TEXT NOT NULL,
-                         position TEXT NOT NULL,
-                         date TEXT NOT NULL,
-                         purpose TEXT NOT NULL,
-                         host TEXT NOT NULL,
-                         start_date TEXT NOT NULL,
-                         end_date TEXT NOT NULL,
-                         destination TEXT NOT NULL)''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS cto_application
-                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         name TEXT NOT NULL,
-                         position TEXT NOT NULL,
-                         days INTEGER NOT NULL,
-                         start_date TEXT NOT NULL,
-                         end_date TEXT NOT NULL)''')
-        conn.execute('''CREATE TABLE IF NOT EXISTS leave_application
-                        (id INTEGER PRIMARY KEY AUTOINCREMENT,
-                         name TEXT NOT NULL,
-                         position TEXT NOT NULL,
-                         days INTEGER NOT NULL,
-                         start_date TEXT NOT NULL,
-                         end_date TEXT NOT NULL)''')
-        conn.commit()
+       with sqlite3.connect('documents.db') as conn:
+        # Create CTO Application table
+        conn.execute('''CREATE TABLE IF NOT EXISTS cto_application (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            position TEXT NOT NULL,
+            days INTEGER NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            recommending_approval TEXT DEFAULT NULL, 
+            approval_status TEXT DEFAULT 'Pending'   
+        )''')
+
+        # Create Leave Application table
+        conn.execute('''CREATE TABLE IF NOT EXISTS leave_application (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            position TEXT NOT NULL,
+            days INTEGER NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            recommending_approval TEXT DEFAULT NULL, 
+            approval_status TEXT DEFAULT 'Pending'   
+        )''')
+
+        # Create Travel Authority table
+        conn.execute('''CREATE TABLE IF NOT EXISTS travel_authority (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            position TEXT NOT NULL,
+            purpose TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            destination TEXT NOT NULL,
+            recommending_approval TEXT DEFAULT NULL, 
+            approval_status TEXT DEFAULT 'Pending'   
+        )''')
+    print("Database initialized successfully")
 
 init_db()
 
@@ -81,20 +96,27 @@ def index():
 
 @app.route('/login', methods=['POST'])
 def login():
-    username = request.form['username']
+    name = request.form['username']
     password = request.form['password']
     with sqlite3.connect('users.db') as conn:
-        user = conn.execute('SELECT * FROM users WHERE username = ?', (username,)).fetchone()
+        user = conn.execute('SELECT * FROM users WHERE name = ?', (name,)).fetchone()
         if user and check_password_hash(user[3], password):
             session['user_id'] = user[0]
             session['username'] = user[2]
             session['role'] = user[4]
+
+            # Redirect based on user role
             if user[4] == 'admin':
                 return redirect(url_for('admin_dashboard'))
+            elif user[4] == 'approver':
+                return redirect(url_for('approver_dashboard'))
+            elif user[4] == 'recommender':
+                return redirect(url_for('recommender_dashboard'))  # New redirect for recommender
             else:
                 return redirect(url_for('user_dashboard'))
-        flash('Invalid credentials')
-        return redirect(url_for('index'))
+        else:
+            flash('Invalid credentials')
+            return redirect(url_for('index'))
 
 @app.route('/user_dashboard')
 def user_dashboard():
@@ -171,11 +193,36 @@ def view_users():
     if 'user_id' not in session or session.get('role') != 'admin':
         flash('Access denied')
         return redirect(url_for('index'))
-    page = request.args.get('page', 1, type=int)
-    per_page = 20
+
+    search = request.args.get('search', '')
+    letter = request.args.get('letter', '')
+    page = request.args.get('page', 1, type=int)  # Current page number (default is 1)
+    per_page = 20  # Number of users per page
+
+    query = 'SELECT * FROM users WHERE 1=1'
+    params = []
+
+    if search:
+        query += ' AND (name LIKE ? OR username LIKE ?)'
+        params.extend([f'%{search}%', f'%{search}%'])
+
+    if letter:
+        query += ' AND (name LIKE ? OR username LIKE ?)'
+        params.extend([f'{letter}%', f'{letter}%'])
+
+    query += ' LIMIT ? OFFSET ?'
+    params.extend([per_page, (page - 1) * per_page])
+
     with sqlite3.connect('users.db') as conn:
-        users = conn.execute('SELECT * FROM users LIMIT ? OFFSET ?', (per_page, (page - 1) * per_page)).fetchall()
-    return render_template('view_users.html', users=users)
+        total_users = conn.execute('SELECT COUNT(*) FROM users WHERE 1=1').fetchone()[0]
+        users = conn.execute(query, params).fetchall()
+
+    # Calculate total pages
+    total_pages = (total_users + per_page - 1) // per_page
+
+    return render_template('view_users.html', users=users, page=page, total_pages=total_pages, search=search, letter=letter)
+
+
 
 @app.route('/clear_data', methods=['POST'])
 def clear_data():
@@ -184,12 +231,15 @@ def clear_data():
         admin_user = conn.execute('SELECT * FROM users WHERE username = ?', ('Admin',)).fetchone()
         if admin_user and check_password_hash(admin_user[3], admin_password):
             with sqlite3.connect('documents.db') as doc_conn:
-                doc_conn.execute('DELETE FROM documents')
+                doc_conn.execute('DELETE FROM cto_application')
+                doc_conn.execute('DELETE FROM leave_application')
+                doc_conn.execute('DELETE FROM travel_authority')
                 doc_conn.commit()
             flash('All data has been cleared successfully', 'success')
         else:
             flash('Invalid admin password', 'danger')
     return redirect(url_for('admin_dashboard'))
+
 
 @app.route('/export_excel')
 def export_excel():
@@ -233,7 +283,8 @@ def import_users_excel():
     try:
         users_df = pd.read_excel(file)
         
-        # Hash the passwords
+        # Convert all passwords to strings before hashing
+        users_df['password'] = users_df['password'].astype(str)
         users_df['password'] = users_df['password'].apply(lambda x: generate_password_hash(x, method='pbkdf2:sha256'))
 
         with sqlite3.connect('users.db') as conn:
@@ -251,6 +302,7 @@ def import_users_excel():
         return redirect(url_for('admin_dashboard'))
 
 
+
 @app.route('/cto_application', methods=['GET', 'POST'])
 def cto_application():
     if request.method == 'POST':
@@ -262,14 +314,15 @@ def cto_application():
         user_id = session['user_id']  # Assuming user is logged in
         
         with sqlite3.connect('documents.db') as conn:
-            conn.execute('''INSERT INTO cto_application (name, position, days, start_date, end_date, user_id)
-                            VALUES (?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, user_id))
+            conn.execute('''INSERT INTO cto_application (name, position, days, start_date, end_date, user_id, recommending_approval)
+                            VALUES (?, ?, ?, ?, ?, ?, NULL)''', (name, position, days, start_date, end_date, user_id))
             conn.commit()
         
         flash('CTO Application submitted successfully!')
         return redirect(url_for('user_dashboard'))
     
     return render_template('cto_application.html')
+
 
 
 @app.route('/leave_application', methods=['GET', 'POST'])
@@ -284,22 +337,22 @@ def leave_application():
         user_id = session['user_id']  # Assuming user is logged in
         
         with sqlite3.connect('documents.db') as conn:
-            conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, leave_type, user_id))
+            conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, NULL)''', (name, position, days, start_date, end_date, leave_type, user_id))
             conn.commit()
+            print("Leave application inserted successfully")
         
         flash('Leave Application submitted successfully!')
         return redirect(url_for('user_dashboard'))
     
     return render_template('leave_application.html')
 
-
 @app.route('/travel_authority', methods=['GET', 'POST'])
 def travel_authority():
     if request.method == 'POST':
         name = request.form['name']
         position = request.form['position']
-        date = request.form['date']
+        date = request.form.get('date', '')  # Use get() to provide a default value
         purpose = request.form['purpose']
         host = request.form['host']
         start_date = request.form['start_date']
@@ -308,8 +361,8 @@ def travel_authority():
         user_id = session['user_id']  # Assuming user is logged in
         
         with sqlite3.connect('documents.db') as conn:
-            conn.execute('''INSERT INTO travel_authority (name, position, date, purpose, host, start_date, end_date, destination, user_id)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', (name, position, date, purpose, host, start_date, end_date, destination, user_id))
+            conn.execute('''INSERT INTO travel_authority (name, position, date, purpose, host, start_date, end_date, destination, user_id, recommending_approval)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)''', (name, position, date, purpose, host, start_date, end_date, destination, user_id))
             conn.commit()
         
         flash('Travel Authority submitted successfully!')
@@ -317,161 +370,185 @@ def travel_authority():
     
     return render_template('travel_authority.html')
 
+@app.route('/change_role/<int:user_id>', methods=['POST'])
+def change_role(user_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
 
+    new_role = request.form['role']
+    with sqlite3.connect('users.db') as conn:
+        conn.execute('UPDATE users SET role = ? WHERE id = ?', (new_role, user_id))
+        conn.commit()
+
+    flash('User role updated successfully', 'success')
+    return redirect(url_for('view_users'))
+
+@app.route('/change_password/<int:user_id>', methods=['GET', 'POST'])
+def change_password(user_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+        if new_password != confirm_password:
+            flash('Passwords do not match')
+            return redirect(url_for('change_password', user_id=user_id))
+
+        hashed_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+        with sqlite3.connect('users.db') as conn:
+            conn.execute('UPDATE users SET password = ? WHERE id = ?', (hashed_password, user_id))
+            conn.commit()
+        flash('Password updated successfully', 'success')
+        return redirect(url_for('view_users'))
+
+    return render_template('change_password.html', user_id=user_id)
+
+@app.route('/document_tracker')
+def document_tracker():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    
+    # If you're not querying the documents, just render the page
+    return render_template('document_tracker.html')
+
+@app.route('/delete_user/<int:user_id>', methods=['POST'])
+def delete_user(user_id):
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    try:
+        with sqlite3.connect('users.db') as user_conn:
+            user = user_conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+            if user:
+                user_conn.execute('DELETE FROM users WHERE id = ?', (user_id,))
+                user_conn.commit()
+
+        with sqlite3.connect('documents.db') as doc_conn:
+            doc_conn.execute('DELETE FROM travel_authority WHERE user_id = ?', (user_id,))
+            doc_conn.execute('DELETE FROM cto_application WHERE user_id = ?', (user_id,))
+            doc_conn.execute('DELETE FROM leave_application WHERE user_id = ?', (user_id,))
+            doc_conn.commit()
+
+        flash('User and all associated data deleted successfully', 'success')
+    except sqlite3.Error as e:
+        flash(f"An error occurred: {e}", 'danger')
+
+    return redirect(url_for('view_users'))
+
+@app.route('/change_password_user', methods=['GET', 'POST'])
+def change_password_user():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        current_password = request.form['current_password']
+        new_password = request.form['new_password']
+        confirm_password = request.form['confirm_password']
+
+        if new_password != confirm_password:
+            flash('New passwords do not match')
+            return redirect(url_for('change_password_user'))
+
+        with sqlite3.connect('users.db') as conn:
+            user = conn.execute('SELECT * FROM users WHERE id = ?', (session['user_id'],)).fetchone()
+            if user and check_password_hash(user[3], current_password):
+                hashed_password = generate_password_hash(new_password, method='pbkdf2:sha256')
+                conn.execute('UPDATE users SET password = ? WHERE id = ?', (hashed_password, session['user_id']))
+                conn.commit()
+                flash('Password updated successfully', 'success')
+                return redirect(url_for('user_dashboard'))
+            else:
+                flash('Current password is incorrect')
+                return redirect(url_for('change_password_user'))
+
+    return render_template('change_password_user.html')
+
+@app.route('/approver_dashboard')
+def approver_dashboard():
+    if 'user_id' not in session or session.get('role') != 'approver':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    with sqlite3.connect('documents.db') as conn:
+        cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+        leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+
+    return render_template(
+        'approver_dashboard.html',
+        cto_applications=cto_applications,
+        leave_applications=leave_applications,
+        travel_authorities=travel_authorities
+    )
+
+
+@app.route('/recommend_approval/<int:app_id>', methods=['POST'])
+def recommend_approval(app_id):
+    if 'user_id' not in session or session.get('role') != 'recommender':
+        return jsonify({'error': 'Access denied'}), 403
+
+    application_type = request.form['application_type']
+
+    with sqlite3.connect('documents.db') as conn:
+        if application_type == 'cto':
+            conn.execute('UPDATE cto_application SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+        elif application_type == 'leave':
+            conn.execute('UPDATE leave_application SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+        elif application_type == 'travel_authority':
+            conn.execute('UPDATE travel_authority SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+        conn.commit()
+
+    return jsonify({'success': True})
+
+
+
+@app.route('/approve_application/<int:app_id>', methods=['POST'])
+def approve_application(app_id):
+    if 'user_id' not in session or session.get('role') != 'approver':
+        return jsonify({'error': 'Access denied'}), 403
+
+    application_type = request.form['application_type']
+
+    with sqlite3.connect('documents.db') as conn:
+        if application_type == 'cto':
+            conn.execute('UPDATE cto_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+        elif application_type == 'leave':
+            conn.execute('UPDATE leave_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+        elif application_type == 'travel_authority':
+            conn.execute('UPDATE travel_authority SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+        conn.commit()
+
+    return jsonify({'success': True})
+
+
+
+@app.route('/recommender_dashboard')
+def recommender_dashboard():
+    if 'user_id' not in session or session.get('role') != 'recommender':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    with sqlite3.connect('documents.db') as conn:
+        cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval IS NULL').fetchall()
+        leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval IS NULL').fetchall()
+        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval IS NULL').fetchall()
+
+    return render_template(
+        'recommender_dashboard.html',
+        cto_applications=cto_applications,
+        leave_applications=leave_applications,
+        travel_authorities=travel_authorities
+    )
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
-
-
-{% extends "base.html" %}
-{% block content %}
-<h2>Admin Dashboard</h2>
-
-<!-- Travel Authorities Table -->
-<h3>Travel Authorities</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Date</th>
-            <th>Purpose</th>
-            <th>Host</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Destination</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for ta in travel_authorities %}
-        <tr>
-            <td>{{ ta[0] }}</td>
-            <td>{{ ta[1] }}</td>
-            <td>{{ ta[2] }}</td>
-            <td>{{ ta[3] }}</td>
-            <td>{{ ta[4] }}</td>
-            <td>{{ ta[5] }}</td>
-            <td>{{ ta[6] }}</td>
-            <td>{{ ta[7] }}</td>
-            <td>{{ ta[8] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<!-- CTO Applications Table -->
-<h3>CTO Applications</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>No. of Days</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for cto in cto_applications %}
-        <tr>
-            <td>{{ cto[0] }}</td>
-            <td>{{ cto[1] }}</td>
-            <td>{{ cto[2] }}</td>
-            <td>{{ cto[3] }}</td>
-            <td>{{ cto[4] }}</td>
-            <td>{{ cto[5] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<!-- Leave Applications Table -->
-<h3>Leave Applications</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>No. of Days</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for leave in leave_applications %}
-        <tr>
-            <td>{{ leave[0] }}</td>
-            <td>{{ leave[1] }}</td>
-            <td>{{ leave[2] }}</td>
-            <td>{{ leave[3] }}</td>
-            <td>{{ leave[4] }}</td>
-            <td>{{ leave[5] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-
-<!-- Button Section -->
-<div class="mt-4 row">
-    <!-- View Users Button -->
-    <div class="col-md-4 text-center mb-3">
-        <a href="{{ url_for('view_users') }}" class="btn btn-primary btn-block">View Users</a>
-    </div>
-    <!-- Export Users to Excel Button -->
-    <div class="col-md-4 text-center mb-3">
-        <a href="{{ url_for('export_users_excel') }}" class="btn btn-success btn-block">Export Users to Excel</a>
-    </div>
-    <!-- Import Users from Excel Form -->
-    <div class="col-md-4 text-center mb-3">
-        <form method="POST" action="{{ url_for('import_users_excel') }}" enctype="multipart/form-data">
-            <div class="custom-file mb-2">
-                <input type="file" class="custom-file-input" name="file" accept=".xlsx" required>
-                <label class="custom-file-label" for="file">Choose Excel file</label>
-            </div>
-            <button type="submit" class="btn btn-warning btn-block">Import Users from Excel</button>
-        </form>
-    </div>
-</div>
-
-<!-- Clear Data Button with Modal Confirmation -->
-<div class="text-center mt-4">
-    <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#confirmDeleteModal">
-        Clear All Data
-    </button>
-</div>
-
-<!-- Modal for Delete Confirmation -->
-<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Confirm Deletion</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">×</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="deleteForm" method="POST" action="{{ url_for('clear_data') }}">
-                    <p>Are you sure you want to delete all data? This action cannot be undone.</p>
-                    <div class="form-group">
-                        <label for="admin_password">Admin Password:</label>
-                        <input type="password" id="admin_password" name="admin_password" class="form-control" required>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
-                <button type="submit" form="deleteForm" class="btn btn-danger">Delete</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-{% endblock %}
-
+    port = int(os.environ.get('PORT', 5000))  # Get the PORT from environment, default to 5000
+    app.run(debug=True, host='0.0.0.0', port=port)
 
 <!DOCTYPE html>
 <html lang="en">
@@ -481,20 +558,81 @@ if __name__ == '__main__':
     <title>Document Submission App</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa; /* Light gray background */
+        }
+        .navbar {
+            margin-bottom: 20px; /* Spacing below navbar */
+        }
+        .table {
+            margin-top: 20px; /* Spacing above table */
+            border-radius: 0.5rem; /* Rounded corners */
+            overflow: hidden; /* Prevents overflow from rounded corners */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Shadow effect */
+        }
+        .table th {
+            background-color: #007bff; /* Bootstrap primary color */
+            color: white; /* White text for header */
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef; /* Light gray hover effect */
+        }
+        .btn-custom {
+            background-color: #007bff; /* Primary button color */
+            color: white; /* White text */
+            border-radius: 0.5rem; /* Rounded corners */
+        }
+        .btn-custom:hover {
+            background-color: #0056b3; /* Darker shade on hover */
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">DocApp</a>
-        <div class="collapse navbar-collapse">
+        <a class="navbar-brand" href="#">
+            {% if session.get('username') %}
+                {{ session['username'] }}  <!-- Display username if logged in -->
+            {% else %}
+                DocApp  <!-- Display "DocApp" on login page or when not logged in -->
+            {% endif %}
+        </a>
+
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ml-auto">
+                {% if session.get('role') == 'admin' %}
+                <!-- Admin-specific links -->
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('view_users') }}">View Users</a>
+                </li>
+                 {% endif %}
+
                 {% if session.get('username') %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
+                    <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('user_dashboard') }}">User Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Application</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('document_tracker') }}">Document Tracker</a>
                 </li>
                 {% endif %}
             </ul>
         </div>
     </nav>
+    
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -503,8 +641,42 @@ if __name__ == '__main__':
                 {% endfor %}
             {% endif %}
         {% endwith %}
-        {% block content %}{% endblock %}
+        
+        {% block content %}
+        <!-- Example table to demonstrate improved design -->
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Document Name</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>Document 1</td>
+                    <td>Submitted</td>
+                    <td>
+                        <button class="btn btn-custom">View</button>
+                        <button class="btn btn-custom">Delete</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>Document 2</td>
+                    <td>Pending</td>
+                    <td>
+                        <button class="btn btn-custom">View</button>
+                        <button class="btn btn-custom">Delete</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+        {% endblock %}
     </div>
+    
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
@@ -569,19 +741,19 @@ if __name__ == '__main__':
     <div class="form-group">
         <label for="leave_type">Type of Leave to be Availed:</label>
         <select id="leave_type" name="leave_type" class="form-control" required>
-            <option value="Vacation Leave (Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Vacation Leave (Sec. 51, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
-            <option value="Mandatory/Forced Leave(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Mandatory/Forced Leave(Sec. 25, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
-            <option value="Sick Leave  (Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Sick Leave  (Sec. 43, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
-            <option value="Maternity Leave (R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)">Maternity Leave (R.A. No. 11210 / IRR issued by CSC, DOLE and SSS)</option>
-            <option value="Paternity Leave (R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)">Paternity Leave (R.A. No. 8187 / CSC MC No. 71, s. 1998, as amended)</option>
-            <option value="Special Privilege Leave (Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Special Privilege Leave (Sec. 21, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
-            <option value="Solo Parent Leave (RA No. 8972 / CSC MC No. 8, s. 2004)">Solo Parent Leave (RA No. 8972 / CSC MC No. 8, s. 2004)</option>
-            <option value="Study Leave (Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Study Leave (Sec. 68, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
-            <option value="10-Day VAWC Leave (RA No. 9262 / CSC MC No. 15, s. 2005)">10-Day VAWC Leave (RA No. 9262 / CSC MC No. 15, s. 2005)</option>
-            <option value="Rehabilitation Privilege (Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)">Rehabilitation Privilege (Sec. 55, Rule XVI, Omnibus Rules Implementing E.O. No. 292)</option>
-            <option value="Special Leave Benefits for Women (RA No. 9710 / CSC MC No. 25, s. 2010)">Special Leave Benefits for Women (RA No. 9710 / CSC MC No. 25, s. 2010)</option>
-            <option value="Special Emergency (Calamity) Leave (CSC MC No. 2, s. 2012, as amended)">Special Emergency (Calamity) Leave (CSC MC No. 2, s. 2012, as amended)</option>
-            <option value="Adoption Leave (R.A. No. 8552)">Adoption Leave (R.A. No. 8552)</option>
+            <option value="Vacation Leave">Vacation Leave</option>
+            <option value="Mandatory/Forced Leave">Mandatory/Forced Leave</option>
+            <option value="Sick Leave">Sick Leave</option>
+            <option value="Maternity Leave">Maternity Leave</option>
+            <option value="Paternity Leave">Paternity Leave</option>
+            <option value="Special Privilege Leave">Special Privilege Leave</option>
+            <option value="Solo Parent Leave">Solo Parent Leave</option>
+            <option value="Study Leave">Study Leave</option>
+            <option value="10-Day VAWC Leave">10-Day VAWC Leave</option>
+            <option value="Rehabilitation Privilege">Rehabilitation Privilege</option>
+            <option value="Special Leave Benefits for Women">Special Leave Benefits for Women</option>
+            <option value="Special Emergency (Calamity) Leave">Special Emergency (Calamity) Leave</option>
+            <option value="Adoption Leave">Adoption Leave</option>
         </select>
     </div>
     <button type="submit" class="btn btn-primary">Submit</button>
@@ -590,24 +762,60 @@ if __name__ == '__main__':
 {% endblock %}
 
 
-{% extends "base.html" %}
-{% block content %}
-<img src="{{ url_for('static', filename='logo.png') }}" alt="Schools Division Calbayog City Logo" class="logo">
-<h2>Schools Division of Calbayog City</h2>
-<h2>Login</h2>
-<form method="POST" action="{{ url_for('login') }}">
-    <div class="form-group">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" class="form-control" required>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Submission App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">Schools Division of Calbayog City: Tracker</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                {% if session.get('username') %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+
+    <div class="container mt-5">
+        <!-- Division Logo -->
+        <div class="text-center">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Division Logo" class="mb-4" style="max-width: 150px;">
+        </div>
+        
+        <h2 class="text-center">Login</h2>
+        <form method="POST" action="{{ url_for('login') }}">
+            <div class="form-group">
+                <label for="username">Employee ID:</label>
+                <input type="text" id="username" name="username" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="password">Password:</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Login</button>
+        </form>
+        <a href="{{ url_for('register') }}" class="btn btn-secondary btn-block mt-3">Register</a>
     </div>
-    <div class="form-group">
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" class="form-control" required>
-    </div>
-    <button type="submit" class="btn btn-primary">Login</button>
-</form>
-<a href="{{ url_for('register') }}">Register</a>
-{% endblock %}
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
 
 
 {% extends "base.html" %}
@@ -637,7 +845,7 @@ if __name__ == '__main__':
 
 {% extends "base.html" %}
 {% block content %}
-<h2>Submit Document</h2>
+<h2>Submit Application</h2>
 <form id="documentForm">
     <div class="form-group">
         <label for="document_type">Document Type:</label>
@@ -730,33 +938,148 @@ function redirectToForm() {
 {% endblock %}
 
 
-{% extends "base.html" %}
-{% block content %}
-<h2>View Users</h2>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Username</th>
-            <th>Role</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for user in users %}
-        <tr>
-            <td>{{ user[0] }}</td>
-            <td>{{ user[1] }}</td>
-            <td>{{ user[2] }}</td>
-            <td>{{ user[4] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Submission App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">
+            {% if session.get('username') %}
+                {{ session['username'] }}  <!-- Display username if logged in -->
+            {% else %}
+                DocApp  <!-- Display "DocApp" on login page or when not logged in -->
+            {% endif %}
+        </a>
 
-</div>
-<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-{% endblock %}
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                {% if session.get('role') == 'admin' %}
+                <!-- Admin-specific links -->
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('view_users') }}">View Users</a>
+                </li>
+                 {% endif %}
+
+                {% if session.get('username') %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('user_dashboard') }}">User Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Application</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('document_tracker') }}">Document Tracker</a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <h2 class="mb-4 text-center">User Management</h2>
+
+        <!-- Search Field -->
+        <form method="GET" action="{{ url_for('view_users') }}" class="form-inline mb-4">
+            <input type="text" name="search" class="form-control mr-2" placeholder="Search by Name or Username" value="{{ request.args.get('search', '') }}">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+
+        <!-- Users Table -->
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-bordered shadow-sm">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user[0] }}</td>
+                        <td>{{ user[1] }}</td>
+                        <td>{{ user[2] }}</td>
+                        <td>{{ user[4] }}</td>
+                        <td>
+                            {% if user[2] != 'Admin' %}
+                            <form action="{{ url_for('change_role', user_id=user[0]) }}" method="post" class="form-inline d-inline-block">
+                                <select name="role" class="form-control mr-2">
+                                    <option value="user" {% if user[4] == 'user' %}selected{% endif %}>User</option>
+                                    <option value="admin" {% if user[4] == 'admin' %}selected{% endif %}>Admin</option>
+                                    <option value="approver" {% if user[4] == 'approver' %}selected{% endif %}>Approver</option>
+                                    <option value="recommender" {% if user[4] == 'recommender' %}selected{% endif %}>Recommender</option> <!-- New role -->
+                                </select>
+                                <button type="submit" class="btn btn-primary btn-sm">Update</button>
+                            </form>
+                            
+                            <a href="{{ url_for('change_password', user_id=user[0]) }}" class="btn btn-warning btn-sm mt-1">Change Password</a>
+                            <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post" class="d-inline-block mt-1" onsubmit="return confirm('Are you sure you want to delete this user and all their data?');">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <nav aria-label="User Pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('view_users', page=page-1) }}" aria-label="Previous">
+                        <span aria-hidden="true">«</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% for p in range(1, total_pages+1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('view_users', page=p) }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                {% if page < total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('view_users', page=page+1) }}" aria-label="Next">
+                        <span aria-hidden="true">»</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+
+        <!-- Letter Indexes -->
+        <div class="letter-indexes mt-4 text-center">
+            {% for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}
+            <a href="{{ url_for('view_users', letter=letter) }}" class="btn btn-outline-primary">{{ letter }}</a>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
 
 

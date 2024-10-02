@@ -1,28 +1,143 @@
-{% extends "base.html" %}
-{% block content %}
-<h2>View Users</h2>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Username</th>
-            <th>Role</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for user in users %}
-        <tr>
-            <td>{{ user[0] }}</td>
-            <td>{{ user[1] }}</td>
-            <td>{{ user[2] }}</td>
-            <td>{{ user[4] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document Submission App</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="#">
+            {% if session.get('username') %}
+                {{ session['username'] }}  <!-- Display username if logged in -->
+            {% else %}
+                DocApp  <!-- Display "DocApp" on login page or when not logged in -->
+            {% endif %}
+        </a>
 
-</div>
-<a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-{% endblock %}
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ml-auto">
+                {% if session.get('role') == 'admin' %}
+                <!-- Admin-specific links -->
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('view_users') }}">View Users</a>
+                </li>
+                 {% endif %}
+
+                {% if session.get('username') %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('user_dashboard') }}">User Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Application</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('document_tracker') }}">Document Tracker</a>
+                </li>
+                {% endif %}
+            </ul>
+        </div>
+    </nav>
+    
+    <div class="container mt-5">
+        <h2 class="mb-4 text-center">User Management</h2>
+
+        <!-- Search Field -->
+        <form method="GET" action="{{ url_for('view_users') }}" class="form-inline mb-4">
+            <input type="text" name="search" class="form-control mr-2" placeholder="Search by Name or Username" value="{{ request.args.get('search', '') }}">
+            <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+
+        <!-- Users Table -->
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-bordered shadow-sm">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td>{{ user[0] }}</td>
+                        <td>{{ user[1] }}</td>
+                        <td>{{ user[2] }}</td>
+                        <td>{{ user[4] }}</td>
+                        <td>
+                            {% if user[2] != 'Admin' %}
+                            <form action="{{ url_for('change_role', user_id=user[0]) }}" method="post" class="form-inline d-inline-block">
+                                <select name="role" class="form-control mr-2">
+                                    <option value="user" {% if user[4] == 'user' %}selected{% endif %}>User</option>
+                                    <option value="admin" {% if user[4] == 'admin' %}selected{% endif %}>Admin</option>
+                                    <option value="approver" {% if user[4] == 'approver' %}selected{% endif %}>Approver</option>
+                                    <option value="recommender" {% if user[4] == 'recommender' %}selected{% endif %}>Recommender</option> <!-- New role -->
+                                </select>
+                                <button type="submit" class="btn btn-primary btn-sm">Update</button>
+                            </form>
+                            
+                            <a href="{{ url_for('change_password', user_id=user[0]) }}" class="btn btn-warning btn-sm mt-1">Change Password</a>
+                            <form action="{{ url_for('delete_user', user_id=user[0]) }}" method="post" class="d-inline-block mt-1" onsubmit="return confirm('Are you sure you want to delete this user and all their data?');">
+                                <button type="submit" class="btn btn-danger btn-sm">Delete</button>
+                            </form>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <nav aria-label="User Pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                {% if page > 1 %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('view_users', page=page-1) }}" aria-label="Previous">
+                        <span aria-hidden="true">«</span>
+                    </a>
+                </li>
+                {% endif %}
+                {% for p in range(1, total_pages+1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="{{ url_for('view_users', page=p) }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                {% if page < total_pages %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('view_users', page=page+1) }}" aria-label="Next">
+                        <span aria-hidden="true">»</span>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+
+        <!-- Letter Indexes -->
+        <div class="letter-indexes mt-4 text-center">
+            {% for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}
+            <a href="{{ url_for('view_users', letter=letter) }}" class="btn btn-outline-primary">{{ letter }}</a>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>

@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 <h2>Admin Dashboard</h2>
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
 
 <!-- Travel Authorities Table -->
 <h3>Travel Authorities</h3>
@@ -10,7 +18,6 @@
             <th>ID</th>
             <th>Name</th>
             <th>Position</th>
-            <th>Date</th>
             <th>Purpose</th>
             <th>Host</th>
             <th>Start Date</th>
@@ -24,7 +31,6 @@
             <td>{{ ta[0] }}</td>
             <td>{{ ta[1] }}</td>
             <td>{{ ta[2] }}</td>
-            <td>{{ ta[3] }}</td>
             <td>{{ ta[4] }}</td>
             <td>{{ ta[5] }}</td>
             <td>{{ ta[6] }}</td>
@@ -43,7 +49,7 @@
             <th>ID</th>
             <th>Name</th>
             <th>Position</th>
-            <th>No. of Days</th>
+            <th>No. of Day/s</th>
             <th>Start Date</th>
             <th>End Date</th>
         </tr>
@@ -70,7 +76,7 @@
             <th>ID</th>
             <th>Name</th>
             <th>Position</th>
-            <th>No. of Days</th>
+            <th>No. of Day/s</th>
             <th>Start Date</th>
             <th>End Date</th>
         </tr>
@@ -90,32 +96,53 @@
 </table>
 
 <!-- Button Section -->
-<div class="mt-4 row">
-    <!-- View Users Button -->
-    <div class="col-md-4 text-center mb-3">
-        <a href="{{ url_for('view_users') }}" class="btn btn-primary btn-block">View Users</a>
+<div class="container mt-4">
+    <div class="row">
+        <!-- View Users Button -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('view_users') }}" class="btn btn-primary btn-block">View Users</a>
+        </div>
+        <!-- Export Users to Excel Button -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('export_users_excel') }}" class="btn btn-success btn-block">Export Users to Excel</a>
+        </div>
+        <!-- Import Users from Excel Form -->
+        <div class="col-md-4 mb-3">
+            <form method="POST" action="{{ url_for('import_users_excel') }}" enctype="multipart/form-data">
+                <div class="custom-file mb-2">
+                    <input type="file" class="custom-file-input" name="file" accept=".xlsx" required>
+                    <label class="custom-file-label" for="file">Choose Excel file</label>
+                </div>
+                <button type="submit" class="btn btn-warning btn-block">Import Users from Excel</button>
+            </form>
+        </div>
+        
     </div>
-    <!-- Export Users to Excel Button -->
-    <div class="col-md-4 text-center mb-3">
-        <a href="{{ url_for('export_users_excel') }}" class="btn btn-success btn-block">Export Users to Excel</a>
+
+    
+    <div class="row mt-4">
+        <!-- Submit Document Button -->
+        <div class="col-md-6 mb-3">
+            <a href="{{ url_for('submit_document') }}" class="btn btn-primary btn-block">Submit Application</a>
+        </div>
+        <div class="col-md-6 mb-3">
+            <a href="{{ url_for('document_tracker') }}" class="btn btn-primary btn-block">Submit Document</a>
+        </div>
     </div>
-    <!-- Import Users from Excel Form -->
-    <div class="col-md-4 text-center mb-3">
-        <form method="POST" action="{{ url_for('import_users_excel') }}" enctype="multipart/form-data">
-            <div class="custom-file mb-2">
-                <input type="file" class="custom-file-input" name="file" accept=".xlsx" required>
-                <label class="custom-file-label" for="file">Choose Excel file</label>
-            </div>
-            <button type="submit" class="btn btn-warning btn-block">Import Users from Excel</button>
-        </form>
+    <div class="row mt-4">
+        <div class="col-md-12 mb-3">
+            <a href="{{ url_for('user_dashboard') }}" class="btn btn-info btn-block">Go to User Dashboard</a>
+        </div>
     </div>
 </div>
 
-<!-- Clear Data Button with Modal Confirmation -->
-<div class="text-center mt-4">
-    <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#confirmDeleteModal">
-        Clear All Data
-    </button>
+<div class="row">
+    <!-- Clear Data Button with Modal Confirmation -->
+    <div class="col-md-12 text-center mt-4">
+        <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#confirmDeleteModal">
+            Clear All Data
+        </button>
+    </div>
 </div>
 
 <!-- Modal for Delete Confirmation -->
