@@ -57,6 +57,22 @@ def init_db():
             approval_status TEXT DEFAULT 'Pending'   
         )''')
 
+         # Create a table for recommended applications
+        conn.execute('''CREATE TABLE IF NOT EXISTS recommended_applications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                app_id INTEGER NOT NULL,
+                app_type TEXT NOT NULL,
+                name TEXT NOT NULL,
+                position TEXT NOT NULL,
+                days INTEGER,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                destination TEXT,
+                purpose TEXT,
+                leave_type TEXT,
+                date_recommended TEXT NOT NULL
+        )''')
+
         # Create Leave Application table
         conn.execute('''CREATE TABLE IF NOT EXISTS leave_application (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,6 +98,7 @@ def init_db():
             approval_status TEXT DEFAULT 'Pending'   
         )''')
     print("Database initialized successfully")
+
 
 init_db()
 
@@ -497,14 +514,27 @@ def recommend_approval(app_id):
 
     with sqlite3.connect('documents.db') as conn:
         if application_type == 'cto':
+            application = conn.execute('SELECT * FROM cto_application WHERE id = ?', (app_id,)).fetchone()
             conn.execute('UPDATE cto_application SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
         elif application_type == 'leave':
+            application = conn.execute('SELECT * FROM leave_application WHERE id = ?', (app_id,)).fetchone()
             conn.execute('UPDATE leave_application SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
         elif application_type == 'travel_authority':
+            application = conn.execute('SELECT * FROM travel_authority WHERE id = ?', (app_id,)).fetchone()
             conn.execute('UPDATE travel_authority SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+        
+        # Add the application to the recommended_applications table
+        conn.execute('''INSERT INTO recommended_applications 
+                        (app_id, app_type, name, position, days, start_date, end_date, destination, purpose, leave_type, date_recommended)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date("now"))''', 
+                     (app_id, application_type, application[1], application[2], application[3], application[4], application[5], 
+                      application[6] if application_type == 'travel_authority' else None, 
+                      application[7] if application_type == 'travel_authority' else None, 
+                      application[6] if application_type == 'leave' else None))
         conn.commit()
 
     return jsonify({'success': True})
+
 
 
 
@@ -545,6 +575,18 @@ def recommender_dashboard():
         leave_applications=leave_applications,
         travel_authorities=travel_authorities
     )
+
+@app.route('/recommended_applications')
+def recommended_applications():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    with sqlite3.connect('documents.db') as conn:
+        recommended_apps = conn.execute('SELECT * FROM recommended_applications').fetchall()
+
+    return render_template('recommended_applications.html', recommended_apps=recommended_apps)
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))  # Get the PORT from environment, default to 5000

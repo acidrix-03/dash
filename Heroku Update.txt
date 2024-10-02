@@ -8,3 +8,4 @@ git add .
 git commit -m "Updated main code"
 
 git push heroku master
+git push heroku master --force

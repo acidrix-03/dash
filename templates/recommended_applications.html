@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Recommended Applications</h2>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Application Type</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Destination</th>
+            <th>Purpose</th>
+            <th>Date Recommended</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in recommended_apps %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[7] }}</td>
+            <td>{{ app[8] }}</td>
+            <td>{{ app[9] }}</td>
+            <td>{{ app[10] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
