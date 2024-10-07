@@ -73,6 +73,20 @@ def init_db():
                 date_recommended TEXT NOT NULL
         )''')
 
+        # Create a table for approved applications
+        conn.execute('''CREATE TABLE IF NOT EXISTS approved_applications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                app_type TEXT NOT NULL,
+                name TEXT NOT NULL,
+                position TEXT NOT NULL,
+                days INTEGER NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                destination TEXT,
+                purpose TEXT,
+                date_recommended TEXT NOT NULL
+        )''')
+
         # Create Leave Application table
         conn.execute('''CREATE TABLE IF NOT EXISTS leave_application (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,6 +115,20 @@ def init_db():
 
 
 init_db()
+
+def add_rejection_comment_column():
+    with sqlite3.connect('documents.db') as conn:
+        # Add rejection_comment to CTO applications table
+        conn.execute('ALTER TABLE cto_application ADD COLUMN rejection_comment TEXT')
+
+        # Add rejection_comment to Leave applications table
+        conn.execute('ALTER TABLE leave_application ADD COLUMN rejection_comment TEXT')
+
+        # Add rejection_comment to Travel authorities table
+        conn.execute('ALTER TABLE travel_authority ADD COLUMN rejection_comment TEXT')
+
+    print("Columns added successfully")
+
 
 # Helper function to check allowed file extensions
 def allowed_file(filename):
@@ -143,11 +171,16 @@ def user_dashboard():
     
     user_id = session['user_id']
     with sqlite3.connect('documents.db') as conn:
-        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
-        cto_applications = conn.execute('SELECT * FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
-        leave_applications = conn.execute('SELECT * FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
-    
-    return render_template('user_dashboard.html', travel_authorities=travel_authorities, cto_applications=cto_applications, leave_applications=leave_applications)
+        # Fetch the CTO applications
+        cto_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, recommending_approval, date_recommended FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
+        
+        # Fetch the leave applications
+        leave_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, leave_type, recommending_approval, date_recommended FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
+        
+        # Fetch the travel authority applications
+        travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, recommending_approval, date_recommended FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
+
+    return render_template('user_dashboard.html', cto_applications=cto_applications, leave_applications=leave_applications, travel_authorities=travel_authorities)
 
 @app.route('/logout')
 def logout():
@@ -318,6 +351,39 @@ def import_users_excel():
         flash(f"Error importing users: {e}", 'error')
         return redirect(url_for('admin_dashboard'))
 
+@app.route('/cancel_application/<app_type>/<int:app_id>', methods=['POST'])
+def cancel_application(app_type, app_id):
+    if 'user_id' not in session:
+        return jsonify({'error': 'Access denied'}), 403
+    
+    with sqlite3.connect('documents.db') as conn:
+        if app_type == 'cto':
+            conn.execute('DELETE FROM cto_application WHERE id = ?', (app_id,))
+        elif app_type == 'leave':
+            conn.execute('DELETE FROM leave_application WHERE id = ?', (app_id,))
+        elif app_type == 'travel_authority':
+            conn.execute('DELETE FROM travel_authority WHERE id = ?', (app_id,))
+        conn.commit()
+    
+    flash('Application cancelled successfully', 'success')
+    return redirect(url_for('user_dashboard'))
+
+@app.route('/reject_application/<int:app_id>', methods=['POST'])
+def reject_application(app_id):
+    if 'user_id' not in session or session.get('role') != 'recommender':
+        return jsonify({'error': 'Access denied'}), 403
+
+    rejection_comment = request.form.get('rejection_comment')
+    
+    with sqlite3.connect('documents.db') as conn:
+        # Update the application status to 'Rejected' and add the rejection comment
+        conn.execute('UPDATE cto_application SET approval_status = "Rejected", rejection_comment = ? WHERE id = ?', (rejection_comment, app_id))
+        conn.commit()
+    
+    # Notify user about rejection with the comment
+    # Your notification logic here
+
+    return jsonify({'success': True})
 
 
 @app.route('/cto_application', methods=['GET', 'POST'])
@@ -491,18 +557,54 @@ def approver_dashboard():
     if 'user_id' not in session or session.get('role') != 'approver':
         flash('Access denied')
         return redirect(url_for('index'))
-
     with sqlite3.connect('documents.db') as conn:
         cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
         leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
         travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
-
     return render_template(
         'approver_dashboard.html',
         cto_applications=cto_applications,
         leave_applications=leave_applications,
         travel_authorities=travel_authorities
     )
+
+@app.route('/approve_application/<int:app_id>', methods=['POST'])
+def approve_application(app_id):
+    if 'user_id' not in session or session.get('role') != 'approver':
+        return jsonify({'error': 'Access denied'}), 403
+    application_type = request.form['application_type']
+    
+    with sqlite3.connect('documents.db') as conn:
+        # Fetch the application data based on the type
+        if application_type == 'cto':
+            application = conn.execute('SELECT name, position, days, start_date, end_date FROM cto_application WHERE id = ?', (app_id,)).fetchone()
+            name, position, days, start_date, end_date = application
+            conn.execute('UPDATE cto_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+            conn.execute('''INSERT INTO approved_applications 
+                            (app_type, name, position, days, start_date, end_date, destination, purpose, date_recommended)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, date("now"))''', 
+                            (application_type, name, position, days, start_date, end_date, None, None))
+        
+        elif application_type == 'leave':
+            application = conn.execute('SELECT name, position, days, start_date, end_date FROM leave_application WHERE id = ?', (app_id,)).fetchone()
+            name, position, days, start_date, end_date = application
+            conn.execute('UPDATE leave_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+            conn.execute('''INSERT INTO approved_applications 
+                            (app_type, name, position, days, start_date, end_date, destination, purpose, date_recommended)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, date("now"))''', 
+                            (application_type, name, position, days, start_date, end_date, None, None))
+        
+        elif application_type == 'travel_authority':
+            application = conn.execute('SELECT name, position, purpose, start_date, end_date, destination FROM travel_authority WHERE id = ?', (app_id,)).fetchone()
+            name, position, purpose, start_date, end_date, destination = application
+            conn.execute('UPDATE travel_authority SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+            conn.execute('''INSERT INTO approved_applications 
+                            (app_type, name, position, days, start_date, end_date, destination, purpose, date_recommended)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, date("now"))''', 
+                            (application_type, name, position, 0, start_date, end_date, destination, purpose))
+        
+        conn.commit()
+    return jsonify({'success': True})
 
 
 @app.route('/recommend_approval/<int:app_id>', methods=['POST'])
@@ -537,27 +639,6 @@ def recommend_approval(app_id):
 
 
 
-
-@app.route('/approve_application/<int:app_id>', methods=['POST'])
-def approve_application(app_id):
-    if 'user_id' not in session or session.get('role') != 'approver':
-        return jsonify({'error': 'Access denied'}), 403
-
-    application_type = request.form['application_type']
-
-    with sqlite3.connect('documents.db') as conn:
-        if application_type == 'cto':
-            conn.execute('UPDATE cto_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
-        elif application_type == 'leave':
-            conn.execute('UPDATE leave_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
-        elif application_type == 'travel_authority':
-            conn.execute('UPDATE travel_authority SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
-        conn.commit()
-
-    return jsonify({'success': True})
-
-
-
 @app.route('/recommender_dashboard')
 def recommender_dashboard():
     if 'user_id' not in session or session.get('role') != 'recommender':
@@ -583,9 +664,24 @@ def recommended_applications():
         return redirect(url_for('index'))
 
     with sqlite3.connect('documents.db') as conn:
-        recommended_apps = conn.execute('SELECT * FROM recommended_applications').fetchall()
+        cto_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "cto"').fetchall()
+        leave_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "leave"').fetchall()
+        travel_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "travel_authority"').fetchall()
 
-    return render_template('recommended_applications.html', recommended_apps=recommended_apps)
+    return render_template('recommended_applications.html', cto_recommended_apps=cto_recommended_apps, leave_recommended_apps=leave_recommended_apps, travel_recommended_apps=travel_recommended_apps)
+
+@app.route('/approved_applications')
+def approved_applications():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    with sqlite3.connect('documents.db') as conn:
+        cto_approved_apps = conn.execute('SELECT * FROM approved_applications WHERE app_type = "cto"').fetchall()
+        leave_approved_apps = conn.execute('SELECT * FROM approved_applications WHERE app_type = "leave"').fetchall()
+        travel_approved_apps = conn.execute('SELECT * FROM approved_applications WHERE app_type = "travel_authority"').fetchall()
+
+    return render_template('approved_applications.html', cto_approved_apps=cto_approved_apps, leave_approved_apps=leave_approved_apps, travel_approved_apps=travel_approved_apps)
 
 
 if __name__ == '__main__':

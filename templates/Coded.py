@@ -1,14 +1,14 @@
 # List of file names (representing tabs)
 file_names = [
-    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\app.py', 
-    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\base.html', 
-    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\cto_application.html', 
-    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\leave_application.html', 
-    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\login.html', 
-    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\register.html', 
-    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\submit_document.html', 
-    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\travel_authority.html', 
-    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\view_users.html'
+    r'D:\warm-hollows-62602\app.py', 
+    r'D:\warm-hollows-62602\templates\base.html', 
+    r'D:\warm-hollows-62602\templates\cto_application.html', 
+    r'D:\warm-hollows-62602\templates\leave_application.html', 
+    r'D:\warm-hollows-62602\templates\login.html', 
+    r'D:\warm-hollows-62602\templates\register.html', 
+    r'D:\warm-hollows-62602\templates\submit_document.html', 
+    r'D:\warm-hollows-62602\templates\travel_authority.html', 
+    r'D:\warm-hollows-62602\templates\view_users.html'
 ]
 
 # Open the output file in write mode

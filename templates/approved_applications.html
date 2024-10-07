@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Recommended Applications</h2>
+<h2>Approved Applications</h2>
 
 <h3>CTO Applications</h3>
 <table class="table table-striped">
@@ -12,19 +12,19 @@
             <th>Days</th>
             <th>Start Date</th>
             <th>End Date</th>
-            <th>Date Recommended</th>
+            <th>Date Approved</th>
         </tr>
     </thead>
     <tbody>
-        {% for app in cto_recommended_apps %}
+        {% for app in cto_approved_apps %}
         <tr>
             <td>{{ app[0] }}</td>
+            <td>{{ app[2] }}</td>
             <td>{{ app[3] }}</td>
             <td>{{ app[4] }}</td>
             <td>{{ app[5] }}</td>
             <td>{{ app[6] }}</td>
-            <td>{{ app[7] }}</td>
-            <td>{{ app[10] }}</td>
+            <td>{{ app[8] }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -41,20 +41,20 @@
             <th>Start Date</th>
             <th>End Date</th>
             <th>Leave Type</th>
-            <th>Date Recommended</th>
+            <th>Date Approved</th>
         </tr>
     </thead>
     <tbody>
-        {% for app in leave_recommended_apps %}
+        {% for app in leave_approved_apps %}
         <tr>
             <td>{{ app[0] }}</td>
+            <td>{{ app[2] }}</td>
             <td>{{ app[3] }}</td>
             <td>{{ app[4] }}</td>
             <td>{{ app[5] }}</td>
             <td>{{ app[6] }}</td>
             <td>{{ app[7] }}</td>
-            <td>{{ app[9] }}</td>
-            <td>{{ app[10] }}</td>
+            <td>{{ app[8] }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -71,20 +71,19 @@
             <th>End Date</th>
             <th>Destination</th>
             <th>Purpose</th>
-            <th>Date Recommended</th>
+            <th>Date Approved</th>
         </tr>
     </thead>
     <tbody>
-        {% for app in travel_recommended_apps %}
+        {% for app in travel_approved_apps %}
         <tr>
             <td>{{ app[0] }}</td>
+            <td>{{ app[2] }}</td>
             <td>{{ app[3] }}</td>
             <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
             <td>{{ app[6] }}</td>
-            <td>{{ app[7] }}</td>
             <td>{{ app[8] }}</td>
-            <td>{{ app[9] }}</td>
-            <td>{{ app[10] }}</td>
         </tr>
         {% endfor %}
     </tbody>
