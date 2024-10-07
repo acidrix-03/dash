@@ -178,7 +178,7 @@ def user_dashboard():
         leave_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, leave_type, recommending_approval, date_recommended FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
         
         # Fetch the travel authority applications
-        travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, recommending_approval, date_recommended FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
+        travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, destination FROM travel_authority').fetchall()
 
     return render_template('user_dashboard.html', cto_applications=cto_applications, leave_applications=leave_applications, travel_authorities=travel_authorities)
 
@@ -657,6 +657,62 @@ def recommender_dashboard():
         travel_authorities=travel_authorities
     )
 
+
+# # Route for showing recommended applications
+# @app.route('/recommended_applications')
+# def recommended_applications():
+#     if 'user_id' not in session:
+#         flash('Please log in first')
+#         return redirect(url_for('index'))
+
+#     with sqlite3.connect('documents.db') as conn:
+#         # Fetch recommended CTO applications
+#         cto_recommended_apps = conn.execute('''
+#             SELECT id, name, position, days, start_date, end_date, date_recommended 
+#             FROM recommended_applications 
+#             WHERE app_type = "cto"
+#         ''').fetchall()
+
+#         # Fetch recommended leave applications
+#         leave_recommended_apps = conn.execute('''
+#             SELECT id, name, position, days, start_date, end_date, leave_type, date_recommended 
+#             FROM recommended_applications 
+#             WHERE app_type = "leave"
+#         ''').fetchall()
+
+#         # Apply leave type mapping to each leave application
+#         leave_recommended_apps = [
+#             (app[0], app[1], app[2], app[3], app[4], app[5], LEAVE_TYPE_MAP.get(app[6], "Unknown Leave Type"), app[7])
+#             for app in leave_recommended_apps
+#         ]
+
+#         # Fetch recommended travel authority applications
+#         travel_recommended_apps = conn.execute('''
+#             SELECT id, name, position, start_date, end_date, destination, purpose, date_recommended 
+#             FROM recommended_applications 
+#             WHERE app_type = "travel_authority"
+#         ''').fetchall()
+
+#     return render_template(
+#         'recommended_applications.html',
+#         cto_recommended_apps=cto_recommended_apps,
+#         leave_recommended_apps=leave_recommended_apps,
+#         travel_recommended_apps=travel_recommended_apps
+#     )
+# Define the mapping for leave types
+LEAVE_TYPE_MAP = {
+    1: 'Sick Leave',
+    2: 'Vacation Leave',
+    3: 'Special Privilege Leave',
+    4: 'Maternity Leave',
+    5: 'Paternity Leave',
+    6: 'Solo Parent Leave',
+    7: 'Study Leave',
+    8: 'Special Leave Benefits for Women',
+    9: 'Emergency Leave',  # Example of adding a new leave type
+    # Add more leave types as per your application
+}
+
 @app.route('/recommended_applications')
 def recommended_applications():
     if 'user_id' not in session:
@@ -665,7 +721,25 @@ def recommended_applications():
 
     with sqlite3.connect('documents.db') as conn:
         cto_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "cto"').fetchall()
-        leave_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "leave"').fetchall()
+        leave_recommended_apps = conn.execute('''
+            SELECT id, name, position, days, start_date, end_date, leave_type, date_recommended 
+            FROM recommended_applications 
+            WHERE app_type = "leave"
+        ''').fetchall()
+
+        for app in leave_recommended_apps:
+            print(f"Leave Type from DB: {app[6]}")  # This will show you what leave_type values are coming from the database
+        
+
+        # Apply leave type mapping
+        leave_recommended_apps = [
+            (app[0], app[1], app[2], app[3], app[4], app[5], LEAVE_TYPE_MAP.get(app[6], "Unknown Leave Type"), app[7])
+            for app in leave_recommended_apps
+
+        ]
+        for app in cto_recommended_apps:
+            print(f"CTO Date Recommended from DB: {app}")  # This will show you what date_recommended values are coming from the database
+
         travel_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "travel_authority"').fetchall()
 
     return render_template('recommended_applications.html', cto_recommended_apps=cto_recommended_apps, leave_recommended_apps=leave_recommended_apps, travel_recommended_apps=travel_recommended_apps)

@@ -24,7 +24,7 @@
             <td>{{ app[5] }}</td>
             <td>{{ app[6] }}</td>
             <td>{{ app[7] }}</td>
-            <td>{{ app[10] }}</td>
+            <td>{{ app[11] }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -40,21 +40,21 @@
             <th>Days</th>
             <th>Start Date</th>
             <th>End Date</th>
-            <th>Leave Type</th>
+    <!-- ID <th>Leave Type</th  >--> 
             <th>Date Recommended</th>
         </tr>
     </thead>
     <tbody>
         {% for app in leave_recommended_apps %}
         <tr>
-            <td>{{ app[0] }}</td>
-            <td>{{ app[3] }}</td>
-            <td>{{ app[4] }}</td>
-            <td>{{ app[5] }}</td>
-            <td>{{ app[6] }}</td>
-            <td>{{ app[7] }}</td>
-            <td>{{ app[9] }}</td>
-            <td>{{ app[10] }}</td>
+            <td>{{ app[0] }}</td> <!-- ID -->
+            <td>{{ app[1] }}</td> <!-- Name -->
+            <td>{{ app[2] }}</td> <!-- Position -->
+            <td>{{ app[3] }}</td> <!-- Days -->
+            <td>{{ app[4] }}</td> <!-- Start Date -->
+            <td>{{ app[5] }}</td> <!-- End Date -->
+   <!--          <td>{{ app[6] }}</td> Display the leave type here -->
+            <td>{{ app[7] }}</td> <!-- Date Recommended -->
         </tr>
         {% endfor %}
     </tbody>
@@ -77,14 +77,14 @@
     <tbody>
         {% for app in travel_recommended_apps %}
         <tr>
-            <td>{{ app[0] }}</td>
-            <td>{{ app[3] }}</td>
-            <td>{{ app[4] }}</td>
-            <td>{{ app[6] }}</td>
-            <td>{{ app[7] }}</td>
-            <td>{{ app[8] }}</td>
-            <td>{{ app[9] }}</td>
-            <td>{{ app[10] }}</td>
+            <td>{{ app[0] }}</td> <!-- ID -->
+            <td>{{ app[3] }}</td> <!-- Name -->
+            <td>{{ app[4] }}</td> <!-- Position -->
+            <td>{{ app[8] }}</td> <!-- Start Date (was app[6]) -->
+            <td>{{ app[9] }}</td> <!-- End Date (was app[7]) -->
+            <td>{{ app[7] }}</td> <!-- Destination (was app[8]) -->
+            <td>{{ app[6] }}</td> <!-- Purpose (was app[9]) -->
+            <td>{{ app[10] }}</td> <!-- Date Recommended -->
         </tr>
         {% endfor %}
     </tbody>

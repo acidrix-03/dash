@@ -77,7 +77,7 @@
                     <td>{{ app[3] }}</td>
                     <td>{{ app[4] }}</td>
                     <td>{{ app[5] }}</td>
-                    <td>{{ app[6] }}</td> <!-- Display the leave type here -->
+                    <td>{{ app[7] }}</td> <!-- Display the leave type here -->
                     <td>
                         <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
                             <input type="hidden" name="application_type" value="leave">
@@ -110,12 +110,12 @@
             <tbody>
                 {% for app in travel_authorities %}
                 <tr id="travel-{{ app[0] }}">
-                    <td>{{ app[1] }}</td>
-                    <td>{{ app[2] }}</td>
-                    <td>{{ app[3] }}</td> <!-- Purpose -->
-                    <td>{{ app[4] }}</td> <!-- Start Date -->
-                    <td>{{ app[5] }}</td> <!-- End Date -->
-                    <td>{{ app[6] }}</td> <!-- Destination -->
+                    <td>{{ app[1] }}</td> <!-- Name -->
+                    <td>{{ app[2] }}</td> <!-- Position -->
+                    <td>{{ app[4] }}</td> <!-- Purpose -->
+                    <td>{{ app[6] }}</td> <!-- Start Date -->
+                    <td>{{ app[7] }}</td> <!-- End Date -->
+                    <td>{{ app[8] }}</td> <!-- Destination -->
                     <td>
                         <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
                             <input type="hidden" name="application_type" value="travel_authority">
