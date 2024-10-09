@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Unit Head Dashboard</h2>
+
+<h3>CTO Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in cto_applications %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}">
+                    <input type="hidden" name="application_type" value="cto">
+                    <button type="submit" class="btn btn-primary">Recommend Approval</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Leave Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in leave_applications %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}">
+                    <input type="hidden" name="application_type" value="leave">
+                    <button type="submit" class="btn btn-primary">Recommend Approval</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Travel Authority Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Purpose</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Destination</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in travel_authorities %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}">
+                    <input type="hidden" name="application_type" value="travel_authority">
+                    <button type="submit" class="btn btn-primary">Recommend Approval</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{{ url_for('recommended_head') }}" class="btn btn-primary">View Recommended Applications</a>
+
+
+{% endblock %}

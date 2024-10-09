@@ -116,6 +116,7 @@ def init_db():
 
 init_db()
 
+
 def add_rejection_comment_column():
     with sqlite3.connect('documents.db') as conn:
         # Add rejection_comment to CTO applications table
@@ -156,7 +157,9 @@ def login():
             elif user[4] == 'approver':
                 return redirect(url_for('approver_dashboard'))
             elif user[4] == 'recommender':
-                return redirect(url_for('recommender_dashboard'))  # New redirect for recommender
+                return redirect(url_for('recommender_dashboard'))
+            elif user[4] == 'unit_head':
+                return redirect(url_for('unit_head_dashboard'))
             else:
                 return redirect(url_for('user_dashboard'))
         else:
@@ -172,13 +175,13 @@ def user_dashboard():
     user_id = session['user_id']
     with sqlite3.connect('documents.db') as conn:
         # Fetch the CTO applications
-        cto_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, recommending_approval, date_recommended FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
+        cto_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, recommending_approval, approval_status, date_recommended FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
         
         # Fetch the leave applications
-        leave_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, leave_type, recommending_approval, date_recommended FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
+        leave_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, leave_type, recommending_approval, approval_status, date_recommended FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
         
         # Fetch the travel authority applications
-        travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, recommending_approval, date_recommended FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
+        travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, destination, recommending_approval, approval_status FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
 
     return render_template('user_dashboard.html', cto_applications=cto_applications, leave_applications=leave_applications, travel_authorities=travel_authorities)
 
@@ -394,17 +397,29 @@ def cto_application():
         days = request.form['days']
         start_date = request.form['start_date']
         end_date = request.form['end_date']
-        user_id = session['user_id']  # Assuming user is logged in
+        recommending_approval = request.form['recommending_approval']
+        user_id = session['user_id']
         
         with sqlite3.connect('documents.db') as conn:
             conn.execute('''INSERT INTO cto_application (name, position, days, start_date, end_date, user_id, recommending_approval)
-                            VALUES (?, ?, ?, ?, ?, ?, NULL)''', (name, position, days, start_date, end_date, user_id))
+                            VALUES (?, ?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, user_id, recommending_approval))
             conn.commit()
-        
+
         flash('CTO Application submitted successfully!')
         return redirect(url_for('user_dashboard'))
-    
-    return render_template('cto_application.html')
+
+    # Fetch Unit Head and Recommender usernames for the dropdown
+    with sqlite3.connect('users.db') as conn:
+        unit_heads = conn.execute('SELECT username FROM users WHERE role = "unit_head"').fetchall()
+        recommenders = conn.execute('SELECT username FROM users WHERE role = "recommender"').fetchall()
+
+    # Combine the lists and pass to the template
+    approving_users = [uh[0] for uh in unit_heads] + [rec[0] for rec in recommenders]
+
+    # Debugging: Print the list of approving_users
+    print(f"Approving Users: {approving_users}")
+
+    return render_template('cto_application.html', approving_users=approving_users)
 
 
 
@@ -645,17 +660,40 @@ def recommender_dashboard():
         flash('Access denied')
         return redirect(url_for('index'))
 
-    with sqlite3.connect('documents.db') as conn:
-        cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval IS NULL').fetchall()
-        leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval IS NULL').fetchall()
-        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval IS NULL').fetchall()
+    recommender_username = session['username']  # Get the logged-in recommender's username
 
-    return render_template(
-        'recommender_dashboard.html',
-        cto_applications=cto_applications,
-        leave_applications=leave_applications,
-        travel_authorities=travel_authorities
-    )
+    # Fetch applications assigned to this recommender
+    with sqlite3.connect('documents.db') as conn:
+        cto_applications = conn.execute('''SELECT * FROM cto_application 
+                                           WHERE recommending_approval = ? AND recommending_approval IS NOT NULL''', 
+                                        (recommender_username,)).fetchall()
+
+        leave_applications = conn.execute('''SELECT * FROM leave_application 
+                                             WHERE recommending_approval = ? AND recommending_approval IS NOT NULL''', 
+                                          (recommender_username,)).fetchall()
+
+        travel_authorities = conn.execute('''SELECT * FROM travel_authority 
+                                             WHERE recommending_approval = ? AND recommending_approval IS NOT NULL''', 
+                                          (recommender_username,)).fetchall()
+
+    return render_template('recommender_dashboard.html', 
+                           cto_applications=cto_applications, 
+                           leave_applications=leave_applications, 
+                           travel_authorities=travel_authorities)
+
+
+LEAVE_TYPE_MAP = {
+    "1": 'Sick Leave',
+    "2": 'Vacation Leave',
+    "3": 'Special Privilege Leave',
+    "4": 'Maternity Leave',
+    "5": 'Paternity Leave',
+    "6": 'Solo Parent Leave',
+    "7": 'Study Leave',
+    "8": 'Special Leave Benefits for Women',
+    "9": 'Emergency Leave',  # Example of adding a new leave type
+    # Add more leave types as per your application
+}
 
 @app.route('/recommended_applications')
 def recommended_applications():
@@ -665,7 +703,25 @@ def recommended_applications():
 
     with sqlite3.connect('documents.db') as conn:
         cto_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "cto"').fetchall()
-        leave_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "leave"').fetchall()
+        leave_recommended_apps = conn.execute('''
+            SELECT id, name, position, days, start_date, end_date, leave_type, date_recommended 
+            FROM recommended_applications 
+            WHERE app_type = "leave"
+        ''').fetchall()
+
+        for app in leave_recommended_apps:
+            print(f"Leave Type from DB: {app[6]}")  # This will show you what leave_type values are coming from the database
+        
+
+        # Apply leave type mapping
+        leave_recommended_apps = [
+            (app[0], app[1], app[2], app[3], app[4], app[5], LEAVE_TYPE_MAP.get(app[6], "Unknown Leave Type"), app[7])
+            for app in leave_recommended_apps
+
+        ]
+        # for app in cto_recommended_apps:
+        #     print(f"CTO Date Recommended from DB: {app}")  # This will show you what date_recommended values are coming from the database
+
         travel_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "travel_authority"').fetchall()
 
     return render_template('recommended_applications.html', cto_recommended_apps=cto_recommended_apps, leave_recommended_apps=leave_recommended_apps, travel_recommended_apps=travel_recommended_apps)
@@ -683,6 +739,24 @@ def approved_applications():
 
     return render_template('approved_applications.html', cto_approved_apps=cto_approved_apps, leave_approved_apps=leave_approved_apps, travel_approved_apps=travel_approved_apps)
 
+@app.route('/unit_head_dashboard')
+def unit_head_dashboard():
+    if 'user_id' not in session or session.get('role') != 'unit_head':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    with sqlite3.connect('documents.db') as conn:
+        # Fetch applications and recommendations for the Unit Head
+        cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval IS NULL').fetchall()
+        leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval IS NULL').fetchall()
+        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval IS NULL').fetchall()
+
+    return render_template('unit_head_dashboard.html', 
+                           cto_applications=cto_applications, 
+                           leave_applications=leave_applications, 
+                           travel_authorities=travel_authorities)
+
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))  # Get the PORT from environment, default to 5000
@@ -694,9 +768,16 @@ if __name__ == '__main__':
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Document Submission App</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+    <!-- Keep Bootstrap 5 only for consistency -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    
     <style>
         body {
             background-color: #f8f9fa; /* Light gray background */
@@ -728,6 +809,7 @@ if __name__ == '__main__':
     </style>
 </head>
 <body>
+    <!-- Updated Navbar -->
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <a class="navbar-brand" href="#">
             {% if session.get('username') %}
@@ -736,57 +818,90 @@ if __name__ == '__main__':
                 DocApp <!-- Display "DocApp" on login page or when not logged in -->
             {% endif %}
         </a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ml-auto">
-                {% if session.get('role') == 'admin' %}
+            <ul class="navbar-nav ms-auto">
                 <!-- Admin-specific links -->
+                {% if session.get('role') == 'admin' %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a>
+                    <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                        <i class="fas fa-tachometer-alt"></i> Admin Dashboard
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('view_users') }}">View Users</a>
-                </li>
-                {% endif %}
-                {% if session.get('role') == 'approver' %}
-                <!-- Approver-specific links -->
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('approver_dashboard') }}">Approver Dashboard</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('approved_applications') }}">Approved Applications</a>
-                </li>
-                {% endif %}
-                {% if session.get('role') == 'recommender' %}
-                <!-- Approver-specific links -->
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('recommender_dashboard') }}">Recommender Dashboard</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('recommended_applications') }}">Recommended Applications</a>
+                    <a class="nav-link" href="{{ url_for('view_users') }}">
+                        <i class="fas fa-users"></i> View Users
+                    </a>
                 </li>
                 {% endif %}
 
+                <!-- Approver-specific links -->
+                {% if session.get('role') == 'approver' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('approver_dashboard') }}">
+                        <i class="fas fa-check-circle"></i> Approver Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('approved_applications') }}">
+                        <i class="fas fa-folder-check"></i> Approved Applications
+                    </a>
+                </li>
+                {% endif %}
+
+                <!-- Recommender-specific links -->
+                {% if session.get('role') == 'recommender' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('recommender_dashboard') }}">
+                        <i class="fas fa-thumbs-up"></i> Recommender Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('recommended_applications') }}">
+                        <i class="fas fa-file-signature"></i> Recommended Applications
+                    </a>
+                </li>
+                {% endif %}
+
+                <!-- Unit Head-specific links -->
+                {% if session.get('role') == 'unit_head' %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('unit_head_dashboard') }}">
+                        <i class="fas fa-user-tie"></i> Unit Head Dashboard
+                    </a>
+                </li>
+                {% endif %}                
+                
+                <!-- Common user links (if logged in) -->
                 {% if session.get('username') %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+                    <a class="nav-link" href="{{ url_for('user_dashboard') }}">
+                        <i class="fas fa-user"></i> User Dashboard
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('user_dashboard') }}">User Dashboard</a>
+                    <a class="nav-link" href="{{ url_for('submit_document') }}">
+                        <i class="fas fa-file-upload"></i> Submit Application
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Application</a>
+                    <a class="nav-link" href="{{ url_for('document_tracker') }}">
+                        <i class="fas fa-folder-open"></i> Document Tracker
+                    </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('document_tracker') }}">Document Tracker</a>
+                    <a class="nav-link" href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </a>
                 </li>
                 {% endif %}
             </ul>
         </div>
     </nav>
 
+    <!-- Main Content -->
     <div class="container">
         {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -831,9 +946,9 @@ if __name__ == '__main__':
         {% endblock %}
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <!-- Bootstrap and Popper.js Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
 
@@ -861,6 +976,15 @@ if __name__ == '__main__':
     <div class="form-group">
         <label for="end_date">End Date:</label>
         <input type="date" id="end_date" name="end_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="recommending_approval">Recommending Approval:</label>
+        <select id="recommending_approval" name="recommending_approval" class="form-control" required>
+            <option value="">Select Recommender</option>
+            {% for user in approving_users %}
+                <option value="{{ user }}">{{ user }}</option>
+            {% endfor %}
+        </select>
     </div>
     <button type="submit" class="btn btn-primary">Submit</button>
 </form>
@@ -1062,10 +1186,10 @@ function redirectToForm() {
         <label for="position">Position:</label>
         <input type="text" id="position" name="position" class="form-control" required>
     </div>
-    <div class="form-group">
+    <!-- <div class="form-group">
         <label for="date">Date:</label>
         <input type="date" id="date" name="date" class="form-control" required>
-    </div>
+    </div> -->
     <div class="form-group">
         <label for="purpose">Purpose:</label>
         <input type="text" id="purpose" name="purpose" class="form-control" required>
@@ -1092,6 +1216,10 @@ function redirectToForm() {
 {% endblock %}
 
 
+{% extends "base.html" %}
+
+{% block content %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1102,49 +1230,7 @@ function redirectToForm() {
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">
-            {% if session.get('username') %}
-                {{ session['username'] }}  <!-- Display username if logged in -->
-            {% else %}
-                DocApp  <!-- Display "DocApp" on login page or when not logged in -->
-            {% endif %}
-        </a>
-
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ml-auto">
-                {% if session.get('role') == 'admin' %}
-                <!-- Admin-specific links -->
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('view_users') }}">View Users</a>
-                </li>
-                 {% endif %}
-
-                {% if session.get('username') %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('user_dashboard') }}">User Dashboard</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Application</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('document_tracker') }}">Document Tracker</a>
-                </li>
-                {% endif %}
-            </ul>
-        </div>
-    </nav>
-    
+       
     <div class="container mt-5">
         <h2 class="mb-4 text-center">User Management</h2>
 
@@ -1180,7 +1266,8 @@ function redirectToForm() {
                                     <option value="user" {% if user[4] == 'user' %}selected{% endif %}>User</option>
                                     <option value="admin" {% if user[4] == 'admin' %}selected{% endif %}>Admin</option>
                                     <option value="approver" {% if user[4] == 'approver' %}selected{% endif %}>Approver</option>
-                                    <option value="recommender" {% if user[4] == 'recommender' %}selected{% endif %}>Recommender</option> <!-- New role -->
+                                    <option value="recommender" {% if user[4] == 'recommender' %}selected{% endif %}>Recommender</option>
+                                    <option value="unit_head" {% if user[4] == 'unit_head' %}selected{% endif %}>Unit Head</option>
                                 </select>
                                 <button type="submit" class="btn btn-primary btn-sm">Update</button>
                             </form>
@@ -1235,5 +1322,1104 @@ function redirectToForm() {
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>
+
+{% endblock %}
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Admin Dashboard</h2>
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ category }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+
+<!-- Travel Authorities Table -->
+<h3>Travel Authorities</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Purpose</th>
+            <th>Host</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Destination</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ta in travel_authorities %}
+        <tr>
+            <td>{{ ta[0] }}</td>
+            <td>{{ ta[1] }}</td>
+            <td>{{ ta[2] }}</td>
+            <td>{{ ta[4] }}</td>
+            <td>{{ ta[5] }}</td>
+            <td>{{ ta[6] }}</td>
+            <td>{{ ta[7] }}</td>
+            <td>{{ ta[8] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- CTO Applications Table -->
+<h3>CTO Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>No. of Day/s</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for cto in cto_applications %}
+        <tr>
+            <td>{{ cto[0] }}</td>
+            <td>{{ cto[1] }}</td>
+            <td>{{ cto[2] }}</td>
+            <td>{{ cto[3] }}</td>
+            <td>{{ cto[4] }}</td>
+            <td>{{ cto[5] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Leave Applications Table -->
+<h3>Leave Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>No. of Day/s</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for leave in leave_applications %}
+        <tr>
+            <td>{{ leave[0] }}</td>
+            <td>{{ leave[1] }}</td>
+            <td>{{ leave[2] }}</td>
+            <td>{{ leave[3] }}</td>
+            <td>{{ leave[4] }}</td>
+            <td>{{ leave[5] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Button Section -->
+<div class="container mt-4">
+    <div class="row">
+        <!-- View Users Button -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('view_users') }}" class="btn btn-primary btn-block">View Users</a>
+        </div>
+        <!-- Export Users to Excel Button -->
+        <div class="col-md-4 mb-3">
+            <a href="{{ url_for('export_users_excel') }}" class="btn btn-success btn-block">Export Users to Excel</a>
+        </div>
+        <!-- Import Users from Excel Form -->
+        <div class="col-md-4 mb-3">
+            <form method="POST" action="{{ url_for('import_users_excel') }}" enctype="multipart/form-data">
+                <div class="custom-file mb-2">
+                    <input type="file" class="custom-file-input" name="file" accept=".xlsx" required>
+                    <label class="custom-file-label" for="file">Choose Excel file</label>
+                </div>
+                <button type="submit" class="btn btn-warning btn-block">Import Users from Excel</button>
+            </form>
+        </div>
+        
+    </div>
+
+    
+    <div class="row mt-4">
+        <!-- Submit Document Button -->
+        <div class="col-md-6 mb-3">
+            <a href="{{ url_for('submit_document') }}" class="btn btn-primary btn-block">Submit Application</a>
+        </div>
+        <div class="col-md-6 mb-3">
+            <a href="{{ url_for('document_tracker') }}" class="btn btn-primary btn-block">Submit Document</a>
+        </div>
+    </div>
+    <div class="row mt-4">
+        <div class="col-md-12 mb-3">
+            <a href="{{ url_for('user_dashboard') }}" class="btn btn-info btn-block">Go to User Dashboard</a>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Clear Data Button with Modal Confirmation -->
+    <div class="col-md-12 text-center mt-4">
+        <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#confirmDeleteModal">
+            Clear All Data
+        </button>
+    </div>
+</div>
+
+<!-- Modal for Delete Confirmation -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Deletion</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">×</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="deleteForm" method="POST" action="{{ url_for('clear_data') }}">
+                    <p>Are you sure you want to delete all data? This action cannot be undone.</p>
+                    <div class="form-group">
+                        <label for="admin_password">Admin Password:</label>
+                        <input type="password" id="admin_password" name="admin_password" class="form-control" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="submit" form="deleteForm" class="btn btn-danger">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+
+{% extends "base.html" %}
+
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approver Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .highlight {
+            background-color: #d4edda; /* Light green background */
+        }
+        .btn-disabled {
+            pointer-events: none;
+            opacity: 0.65;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Approver Dashboard</h2>
+
+        <!-- CTO Applications Table -->
+        <h3>CTO Applications</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Approval Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in cto_applications %}
+                <tr id="cto-{{ app[0] }}">
+                    <td>{{ app[0] }}</td>
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[2] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[4] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[7] }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('approve_application', app_id=app[0]) }}" class="approve-form">
+                            <input type="hidden" name="application_type" value="cto">
+                            <button type="submit" class="btn btn-success approve-btn">Application Approved</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Leave Applications Table -->
+        <h3>Leave Applications</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Approval Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in leave_applications %}
+                <tr id="leave-{{ app[0] }}">
+                    <td>{{ app[0] }}</td>
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[2] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[4] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[7] }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('approve_application', app_id=app[0]) }}" class="approve-form">
+                            <input type="hidden" name="application_type" value="leave">
+                            <button type="submit" class="btn btn-success approve-btn">Application Approved</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Travel Authorities Table -->
+        <h3>Travel Authorities</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Purpose</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Destination</th>
+                    <th>Approval Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in travel_authorities %}
+                <tr id="travel-{{ app[0] }}">
+                    <td>{{ app[0] }}</td>
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[2] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[6] }}</td>
+                    <td>{{ app[7] }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('approve_application', app_id=app[0]) }}" class="approve-form">
+                            <input type="hidden" name="application_type" value="travel_authority">
+                            <button type="submit" class="btn btn-success approve-btn">Application Approved</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('.approve-form').on('submit', function(event) {
+                event.preventDefault();
+                var form = $(this);
+                var row = form.closest('tr');
+                var button = form.find('.approve-btn');
+
+                $.ajax({
+                    type: 'POST',
+                    url: form.attr('action'),
+                    data: form.serialize(),
+                    success: function(response) {
+                        if (response.success) {
+                            row.addClass('highlight');
+                            button.removeClass('btn-success').addClass('btn-secondary btn-disabled').text('Approved');
+                        } else {
+                            alert('Error: ' + response.error);
+                        }
+                    },
+                    error: function() {
+                        alert('An error occurred. Please try again.');
+                    }
+                });
+            });
+        });
+    </script>
+
+        <!-- Add buttons for navigation -->
+        <a href="{{ url_for('approved_applications') }}" class="btn btn-primary mb-3">View Approved Applications</a>
+</body>
+</html>
+
+{% endblock %}
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Approved Applications</h2>
+
+<h3>CTO Applications</h3>
+<input type="text" id="ctoInput" onkeyup="filterTable('ctoTable', 'ctoInput')" placeholder="Search for names..">
+<table class="table table-striped" id="ctoTable">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Date Approved</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in cto_approved_apps %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[9] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Leave Applications</h3>
+<input type="text" id="leaveInput" onkeyup="filterTable('leaveTable', 'leaveInput')" placeholder="Search for names..">
+<table class="table table-striped" id="leaveTable">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <!-- <th>Leave Type</th> Leave Type column -->
+            <th>Date Approved</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in leave_approved_apps %}
+        <tr>
+            <td>{{ app[0] }}</td> <!-- ID -->
+            <td>{{ app[2] }}</td> <!-- Name -->
+            <td>{{ app[3] }}</td> <!-- Position -->
+            <td>{{ app[4] }}</td> <!-- Days -->
+            <td>{{ app[5] }}</td> <!-- Start Date -->
+            <td>{{ app[6] }}</td> <!-- End Date -->
+            <!-- <td>{{ app [7]}}</td> Leave Type -->
+            <td>{{ app[9] }}</td> <!-- Date Approved -->
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Travel Authorities</h3>
+<input type="text" id="travelInput" onkeyup="filterTable('travelTable', 'travelInput')" placeholder="Search for names..">
+<table class="table table-striped" id="travelTable">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Destination</th>
+            <th>Purpose</th>
+            <th>Date Approved</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in travel_approved_apps %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[7] }}</td>
+            <td>{{ app[8] }}</td>
+            <td>{{ app[9] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+function filterTable(tableId, inputId) {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById(inputId);
+    filter = input.value.toLowerCase();
+    table = document.getElementById(tableId);
+    tr = table.getElementsByTagName("tr");
+
+    // Loop through all table rows, and hide those who don't match the search query
+    for (i = 1; i < tr.length; i++) {
+        tr[i].style.display = "none"; // Hide the row initially
+        td = tr[i].getElementsByTagName("td");
+        for (j = 0; j < td.length; j++) {
+            if (td[j]) {
+                txtValue = td[j].textContent || td[j].innerText;
+                if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                    tr[i].style.display = ""; // Show the row if it matches
+                    break; // No need to check other cells in the row
+                }
+            }
+        }
+    }
+}
+</script>
+
+<a href="{{ url_for('approver_dashboard') }}" class="btn btn-primary mb-3">Go back to dashboard</a>
+
+{% endblock %}
+
+
+{% extends "base.html" %}
+{% block content %}
+<div class="container mt-5">
+    <h2 class="mb-4">Change Password</h2>
+    <form method="POST" action="{{ url_for('change_password', user_id=user_id) }}">
+        <div class="form-group">
+            <label for="new_password">New Password:</label>
+            <input type="password" id="new_password" name="new_password" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="confirm_password">Confirm Password:</label>
+            <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Change Password</button>
+    </form>
+    <a href="{{ url_for('view_users') }}" class="btn btn-secondary mt-3">Back to Users</a>
+</div>
+{% endblock %}
+
+
+{% extends "base.html" %}
+
+{% block content %}
+<h2>This will be the Documents Tracker page</h2>
+<a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+{% endblock %}
+
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Recommended Applications</h2>
+
+<h3>CTO Applications</h3>
+<input type="text" id="ctoFilterInput" onkeyup="filterTable('ctoTable', 'ctoFilterInput')" placeholder="Search for names..">
+<table id="ctoTable" class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Date Recommended</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in cto_recommended_apps %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[7] }}</td>
+            <td>{{ app[11] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Leave Applications</h3>
+<input type="text" id="leaveFilterInput" onkeyup="filterTable('leaveTable', 'leaveFilterInput')" placeholder="Search for names..">
+<table id="leaveTable" class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Leave Type</th> <!-- New Leave Type column -->
+            <th>Date Recommended</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in leave_recommended_apps %}
+        <tr>
+            <td>{{ app[0] }}</td> <!-- ID -->
+            <td>{{ app[1] }}</td> <!-- Name -->
+            <td>{{ app[2] }}</td> <!-- Position -->
+            <td>{{ app[3] }}</td> <!-- Days -->
+            <td>{{ app[4] }}</td> <!-- Start Date -->
+            <td>{{ app[5] }}</td> <!-- End Date -->
+            <td>{{ app[6] }}</td> <!-- Leave Type (now displayed) -->
+            <td>{{ app[7] }}</td> <!-- Date Recommended -->
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<h3>Travel Authorities</h3>
+<input type="text" id="travelFilterInput" onkeyup="filterTable('travelTable', 'travelFilterInput')" placeholder="Search for names..">
+<table id="travelTable" class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Destination</th>
+            <th>Purpose</th>
+            <th>Date Recommended</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in travel_recommended_apps %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[8] }}</td>
+            <td>{{ app[9] }}</td>
+            <td>{{ app[7] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[11] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+function filterTable(tableId, inputId) {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById(inputId);
+    filter = input.value.toLowerCase();
+    table = document.getElementById(tableId);
+    tr = table.getElementsByTagName("tr");
+
+    // Loop through all table rows, and hide those who don't match the search query
+    for (i = 1; i < tr.length; i++) {
+        tr[i].style.display = "none"; // Hide the row initially
+        td = tr[i].getElementsByTagName("td");
+        for (j = 0; j < td.length; j++) {
+            if (td[j]) {
+                txtValue = td[j].textContent || td[j].innerText;
+                if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                    tr[i].style.display = ""; // Show the row if it matches
+                    break; // No need to check other cells in the row
+                }
+            }
+        }
+    }
+}
+</script>
+
+<a href="{{ url_for('recommender_dashboard') }}" class="btn btn-secondary mb-3">Go back to Dashboard</a>
+
+{% endblock %}
+
+
+{% extends "base.html" %}
+
+{% block content %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recommender Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .highlight {
+            background-color: #fff3cd; /* Light yellow background */
+        }
+        .btn-disabled {
+            pointer-events: none;
+            opacity: 0.65;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Recommender Dashboard</h2>
+
+        <!-- CTO Applications Table -->
+        <h3>CTO Applications</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in cto_applications %}
+                <tr id="cto-{{ app[0] }}">
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[2] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[4] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>
+                        <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
+                            <input type="hidden" name="application_type" value="cto">
+                            <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('reject_application', app_id=app[0]) }}" class="reject-form mt-2">
+                            <input type="hidden" name="application_type" value="cto">
+                            <button type="button" class="btn btn-danger reject-btn">Reject Application</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Leave Applications Table -->
+        <h3>Leave Applications</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Leave Type</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in leave_applications %}
+                <tr id="leave-{{ app[0] }}">
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[2] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[4] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[7] }}</td> <!-- Display the leave type here -->
+                    <td>
+                        <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
+                            <input type="hidden" name="application_type" value="leave">
+                            <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('reject_application', app_id=app[0]) }}" class="reject-form mt-2">
+                            <input type="hidden" name="application_type" value="leave">
+                            <button type="button" class="btn btn-danger reject-btn">Reject Application</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Travel Authorities Table -->
+        <h3>Travel Authorities</h3>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Purpose</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Destination</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in travel_authorities %}
+                <tr id="travel-{{ app[0] }}">
+                    <td>{{ app[1] }}</td> <!-- Name -->
+                    <td>{{ app[2] }}</td> <!-- Position -->
+                    <td>{{ app[4] }}</td> <!-- Purpose -->
+                    <td>{{ app[6] }}</td> <!-- Start Date -->
+                    <td>{{ app[7] }}</td> <!-- End Date -->
+                    <td>{{ app[8] }}</td> <!-- Destination -->
+                    <td>
+                        <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
+                            <input type="hidden" name="application_type" value="travel_authority">
+                            <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('reject_application', app_id=app[0]) }}" class="reject-form mt-2">
+                            <input type="hidden" name="application_type" value="travel_authority">
+                            <button type="button" class="btn btn-danger reject-btn">Reject Application</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <a href="{{ url_for('recommended_applications') }}" class="btn btn-secondary mb-3">Go to Recommended Applications</a>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // AJAX for recommend approval
+            $('.recommend-form').on('submit', function(event) {
+                event.preventDefault();
+                var form = $(this);
+                var row = form.closest('tr');
+                var button = form.find('.recommend-btn');
+
+                $.ajax({
+                    type: 'POST',
+                    url: form.attr('action'),
+                    data: form.serialize(),
+                    success: function(response) {
+                        if (response.success) {
+                            row.addClass('highlight');
+                            button.removeClass('btn-warning').addClass('btn-secondary btn-disabled').text('Recommended');
+                        } else {
+                            alert('Error: ' + response.error);
+                        }
+                    },
+                    error: function() {
+                        alert('An error occurred. Please try again.');
+                    }
+                });
+            });
+
+            // AJAX for reject application
+            $('.reject-btn').on('click', function() {
+                var form = $(this).closest('.reject-form');
+                var appId = form.attr('action').split('/').pop();
+                var rejectionComment = prompt("Please enter a reason for rejection:");
+
+                if (rejectionComment) {
+                    $.ajax({
+                        type: 'POST',
+                        url: form.attr('action'),
+                        data: { rejection_comment: rejectionComment },
+                        success: function(response) {
+                            if (response.success) {
+                                alert("Application rejected with comment: " + rejectionComment);
+                                form.closest('tr').remove();
+                            } else {
+                                alert('Error: ' + response.error);
+                            }
+                        },
+                        error: function() {
+                            alert('An error occurred. Please try again.');
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
+
+{% endblock %}
+
+{% extends "base.html" %}
+
+{% block content %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .table {
+            margin-top: 20px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .table th {
+            background-color: #007bff;
+            color: white;
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef;
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.5rem;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
+        }
+        .filter-input {
+            margin-bottom: 15px;
+        }
+    </style>
+
+
+    <div class="container">
+        <h2 class="mb-4">User Dashboard</h2>
+
+        <!-- Filter inputs -->
+        <div class="row">
+            <!-- <div class="col-md-4">
+                <input type="text" id="nameFilter" class="form-control filter-input" placeholder="Filter by Name">
+            </div>
+            <div class="col-md-4">
+                <input type="text" id="positionFilter" class="form-control filter-input" placeholder="Filter by Position">
+            </div> -->
+            <div class="col-md-4">
+                <input type="date" id="dateFilter" class="form-control filter-input" placeholder="Filter by Date">
+            </div>
+        </div>
+
+
+        <!-- CTO Applications Table -->
+        <h4>CTO Applications</h4>
+        <table class="table table-striped" id="ctoTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for application in cto_applications %}
+                <tr>
+                    <td>{{ application[1] }}</td>
+                    <td>{{ application[2] }}</td>
+                    <td>{{ application[3] }}</td>
+                    <td>{{ application[4] }}</td>
+                    <td>{{ application[5] }}</td>
+                    <td>
+                        {% if application[7] == 'Approved' %}
+                            Approved
+                        {% elif application[7] == 'Recommended' %}
+                            Recommended
+                        {% else %}
+                            Pending
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Leave Applications Table -->
+        <h4>Leave Applications</h4>
+        <table class="table table-striped" id="leaveTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Type of Leave</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for application in leave_applications %}
+                <tr>
+                    <td>{{ application[1] }}</td>
+                    <td>{{ application[2] }}</td>
+                    <td>{{ application[3] }}</td>
+                    <td>{{ application[4] }}</td>
+                    <td>{{ application[5] }}</td>
+                    <td>{{ application[6] }}</td>
+                    <td>
+                        {% if application[7] == 'Approved' %}
+                            Approved
+                        {% elif application[7] == 'Recommended' %}
+                            Approved
+                        {% else %}
+                            Pending
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Travel Authority Table -->
+        <h4>Travel Authorities</h4>
+        <table class="table table-striped" id="travelTable">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Purpose</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Destination</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for authority in travel_authorities %}
+                <tr>
+                    <td>{{ authority[1] }}</td>
+                    <td>{{ authority[2] }}</td>
+                    <td>{{ authority[3] }}</td>
+                    <td>{{ authority[4] }}</td>
+                    <td>{{ authority[5] }}</td>
+                    <td>{{ authority[6] }}</td>
+                    <td>
+                        {% if authority[7] == 'Approved' %}
+                            Approved
+                        {% elif authority[7] == 'Recommended' %}
+                            Approved
+                        {% else %}
+                            Pending
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    </div>
+
+    <script>
+        document.getElementById('nameFilter').addEventListener('keyup', function() {
+            filterTable();
+        });
+        
+        document.getElementById('positionFilter').addEventListener('keyup', function() {
+            filterTable();
+        });
+        
+        document.getElementById('dateFilter').addEventListener('change', function() {
+            filterTable();
+        });
+
+        function filterTable() {
+            let nameFilter = document.getElementById('nameFilter').value.toLowerCase();
+            let positionFilter = document.getElementById('positionFilter').value.toLowerCase();
+            let dateFilter = document.getElementById('dateFilter').value;
+
+            filterSpecificTable('ctoTable', nameFilter, positionFilter, dateFilter);
+            filterSpecificTable('leaveTable', nameFilter, positionFilter, dateFilter);
+            filterSpecificTable('travelTable', nameFilter, positionFilter, dateFilter);
+        }
+
+        function filterSpecificTable(tableId, nameFilter, positionFilter, dateFilter) {
+            let table = document.getElementById(tableId);
+            let tr = table.getElementsByTagName('tr');
+
+            for (let i = 1; i < tr.length; i++) {
+                let tdName = tr[i].getElementsByTagName('td')[0];
+                let tdPosition = tr[i].getElementsByTagName('td')[1];
+                let tdStartDate = tr[i].getElementsByTagName('td')[3];
+
+                if (tdName && tdPosition && tdStartDate) {
+                    let nameValue = tdName.textContent.toLowerCase();
+                    let positionValue = tdPosition.textContent.toLowerCase();
+                    let startDateValue = tdStartDate.textContent;
+
+                    let nameMatch = nameValue.includes(nameFilter);
+                    let positionMatch = positionValue.includes(positionFilter);
+                    let dateMatch = dateFilter === "" || startDateValue.startsWith(dateFilter);
+
+                    if (nameMatch && positionMatch && dateMatch) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }
+            }
+        }
+    </script>
+    <a href="{{ url_for('submit_document') }}" class="btn btn-secondary mb-3">Submit Application</a>
+    <a href="{{ url_for('document_tracker') }}" class="btn btn-secondary mb-3">Submit Document</a>
+    
+</body>
+</html>
+
+{% endblock %}
+
+{% extends "base.html" %}
+{% block content %}
+<h2>Unit Head Dashboard</h2>
+<!-- CTO Applications Table -->
+<h3>CTO Applications</h3>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in cto_applications %}
+        <tr>
+            <td>{{ app }}</td>
+            <td>{{ app }}</td>
+            <td>{{ app }}</td>
+            <td>{{ app }}</td>
+            <td>{{ app }}</td>
+            <td>
+                <form method="POST" action="{{ url_for('recommend_approval', app_id=app) }}" class="recommend-form">
+                    <input type="hidden" name="application_type" value="cto">
+                    <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
+                </form>
+                <form method="POST" action="{{ url_for('reject_application', app_id=app) }}" class="reject-form mt-2">
+                    <input type="hidden" name="application_type" value="cto">
+                    <button type="button" class="btn btn-danger reject-btn">Reject Application</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+<!-- Similar tables for Leave Applications and Travel Authorities -->
+{% endblock %}
 
 

@@ -22,6 +22,15 @@
         <label for="end_date">End Date:</label>
         <input type="date" id="end_date" name="end_date" class="form-control" required>
     </div>
+    <div class="form-group">
+        <label for="recommending_approval">Recommending Approval:</label>
+        <select id="recommending_approval" name="recommending_approval" class="form-control" required>
+            <option value="">Select Recommender</option>
+            {% for user in approving_users %}
+                <option value="{{ user }}">{{ user }}</option>
+            {% endfor %}
+        </select>
+    </div>
     <button type="submit" class="btn btn-primary">Submit</button>
 </form>
 <a href="{{ url_for('submit_document') }}" class="btn btn-secondary mt-3">Back</a>

@@ -1,3 +1,7 @@
+{% extends "base.html" %}
+
+{% block content %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,49 +12,7 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">
-            {% if session.get('username') %}
-                {{ session['username'] }}  <!-- Display username if logged in -->
-            {% else %}
-                DocApp  <!-- Display "DocApp" on login page or when not logged in -->
-            {% endif %}
-        </a>
-
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ml-auto">
-                {% if session.get('role') == 'admin' %}
-                <!-- Admin-specific links -->
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('admin_dashboard') }}">Admin Dashboard</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('view_users') }}">View Users</a>
-                </li>
-                 {% endif %}
-
-                {% if session.get('username') %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('user_dashboard') }}">User Dashboard</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Application</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('document_tracker') }}">Document Tracker</a>
-                </li>
-                {% endif %}
-            </ul>
-        </div>
-    </nav>
-    
+       
     <div class="container mt-5">
         <h2 class="mb-4 text-center">User Management</h2>
 
@@ -86,7 +48,8 @@
                                     <option value="user" {% if user[4] == 'user' %}selected{% endif %}>User</option>
                                     <option value="admin" {% if user[4] == 'admin' %}selected{% endif %}>Admin</option>
                                     <option value="approver" {% if user[4] == 'approver' %}selected{% endif %}>Approver</option>
-                                    <option value="recommender" {% if user[4] == 'recommender' %}selected{% endif %}>Recommender</option> <!-- New role -->
+                                    <option value="recommender" {% if user[4] == 'recommender' %}selected{% endif %}>Recommender</option>
+                                    <option value="unit_head" {% if user[4] == 'unit_head' %}selected{% endif %}>Unit Head</option>
                                 </select>
                                 <button type="submit" class="btn btn-primary btn-sm">Update</button>
                             </form>
@@ -141,3 +104,5 @@
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 </body>
 </html>
+
+{% endblock %}

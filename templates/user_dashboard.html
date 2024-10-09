@@ -1,3 +1,7 @@
+{% extends "base.html" %}
+
+{% block content %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -10,17 +14,9 @@
             background-color: #f8f9fa;
         }
         .navbar {
-            background-color: #007bff;
-            color: white;
-        }
-        .navbar .nav-link {
-            color: white;
-        }
-        .navbar .nav-link:hover {
-            color: #f8f9fa;
+            margin-bottom: 20px;
         }
         .table {
-            background-color: white;
             margin-top: 20px;
             border-radius: 0.5rem;
             overflow: hidden;
@@ -41,93 +37,58 @@
         .btn-custom:hover {
             background-color: #0056b3;
         }
-        .btn-approve {
-            background-color: #28a745;
-            color: white;
-        }
-        .btn-approve:hover {
-            background-color: #218838;
-        }
-        .btn-recommend {
-            background-color: #17a2b8;
-            color: white;
-        }
-        .btn-recommend:hover {
-            background-color: #117a8b;
-        }
-        .btn-submit {
-            margin-right: 10px;
-        }
-        .btn-disabled {
-            pointer-events: none;
-            background-color: #ccc;
-            color: #666;
+        .filter-input {
+            margin-bottom: 15px;
         }
     </style>
-</head>
-<body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <a class="navbar-brand" href="#">
-            {% if session.get('username') %}
-                Hi, {{ session['username'] }}
-            {% else %}
-                User Dashboard
-            {% endif %}
-        </a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ml-auto">
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Document</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('submit_document') }}">Submit Application</a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}">Logout</a>
-                </li>
-            </ul>
-        </div>
-    </nav>
 
-    <div class="container mt-5">
-        <h2 class="text-center">User Dashboard</h2>
+
+    <div class="container">
+        <h2 class="mb-4">User Dashboard</h2>
+
+        <!-- Filter inputs -->
+        <div class="row">
+            <!-- <div class="col-md-4">
+                <input type="text" id="nameFilter" class="form-control filter-input" placeholder="Filter by Name">
+            </div>
+            <div class="col-md-4">
+                <input type="text" id="positionFilter" class="form-control filter-input" placeholder="Filter by Position">
+            </div> -->
+            <div class="col-md-4">
+                <input type="date" id="dateFilter" class="form-control filter-input" placeholder="Filter by Date">
+            </div>
+        </div>
+
 
         <!-- CTO Applications Table -->
-        <h2>CTO Applications</h2>
-        <table class="table">
+        <h4>CTO Applications</h4>
+        <table class="table table-striped" id="ctoTable">
             <thead>
                 <tr>
                     <th>Name</th>
                     <th>Position</th>
+                    <th>Days</th>
                     <th>Start Date</th>
                     <th>End Date</th>
-                    <th>Recommending Approval</th>
-                    <th>Actions</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for application in cto_applications %}
                 <tr>
-                    <td>{{ application[1] }}</td> <!-- Name -->
-                    <td>{{ application[2] }}</td> <!-- Position -->
-                    <td>{{ application[4] }}</td> <!-- Start Date -->
-                    <td>{{ application[5] }}</td> <!-- End Date -->
+                    <td>{{ application[1] }}</td>
+                    <td>{{ application[2] }}</td>
+                    <td>{{ application[3] }}</td>
+                    <td>{{ application[4] }}</td>
+                    <td>{{ application[5] }}</td>
                     <td>
-                        {% if application[6] == 'Pending' %}
-                            Pending
-                        {% elif application[6] == 'Recommended' and application[7] %}
-                            Recommended on {{ application[7] }}
+                        {% if application[7] == 'Approved' %}
+                            Approved
+                        {% elif application[7] == 'Recommended' %}
+                            Recommended
                         {% else %}
-                            {{ application[6] }}
+                            Pending
                         {% endif %}
-                    </td>
-                    <td>
-                        <form method="POST" action="{{ url_for('cancel_application', app_type='cto', app_id=application[0]) }}" onsubmit="return confirmCancel('{{ application[1] }}')">
-                            <button type="submit" class="btn btn-danger {% if application[6] == 'Recommended' or application[6] == 'Approved' %}btn-disabled{% endif %}">Cancel Application</button>
-                        </form>
                     </td>
                 </tr>
                 {% endfor %}
@@ -135,102 +96,135 @@
         </table>
 
         <!-- Leave Applications Table -->
-        <h2>Leave Applications</h2>
-        <table class="table">
+        <h4>Leave Applications</h4>
+        <table class="table table-striped" id="leaveTable">
             <thead>
                 <tr>
                     <th>Name</th>
                     <th>Position</th>
-                    <th>Type of Leave</th>
+                    <th>Days</th>
                     <th>Start Date</th>
                     <th>End Date</th>
-                    <th>Recommending Approval</th>
-                    <th>Actions</th>
+                    <th>Type of Leave</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
                 {% for application in leave_applications %}
                 <tr>
-                    <td>{{ application[1] }}</td> <!-- Name -->
-                    <td>{{ application[2] }}</td> <!-- Position -->
-                    <td>{{ application[6] }}</td> <!-- Type of Leave -->
-                    <td>{{ application[4] }}</td> <!-- Start Date -->
-                    <td>{{ application[5] }}</td> <!-- End Date -->
+                    <td>{{ application[1] }}</td>
+                    <td>{{ application[2] }}</td>
+                    <td>{{ application[3] }}</td>
+                    <td>{{ application[4] }}</td>
+                    <td>{{ application[5] }}</td>
+                    <td>{{ application[6] }}</td>
                     <td>
-                        {% if application[7] == 'Pending' %}
-                            Pending
-                        {% elif application[7] == 'Recommended' and application[8] %}
-                            Recommended on {{ application[8] }}
+                        {% if application[7] == 'Approved' %}
+                            Approved
+                        {% elif application[7] == 'Recommended' %}
+                            Approved
                         {% else %}
-                            {{ application[7] }}
+                            Pending
                         {% endif %}
-                    </td>
-                    <td>
-                        <form method="POST" action="{{ url_for('cancel_application', app_type='leave', app_id=application[0]) }}" onsubmit="return confirmCancel('{{ application[1] }}')">
-                            <button type="submit" class="btn btn-danger {% if application[7] == 'Recommended' or application[7] == 'Approved' %}btn-disabled{% endif %}">Cancel Application</button>
-                        </form>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
 
-        <!-- Travel Authority Applications Table -->
-        <h2>Travel Authority Applications</h2>
-        <table class="table">
+        <!-- Travel Authority Table -->
+        <h4>Travel Authorities</h4>
+        <table class="table table-striped" id="travelTable">
             <thead>
                 <tr>
                     <th>Name</th>
                     <th>Position</th>
+                    <th>Purpose</th>
                     <th>Start Date</th>
                     <th>End Date</th>
-                    <th>Recommending Approval</th>
-                    <th>Actions</th>
+                    <th>Destination</th>
+                    <th>Status</th>
                 </tr>
             </thead>
             <tbody>
-                {% for application in travel_authorities %}
+                {% for authority in travel_authorities %}
                 <tr>
-                    <td>{{ application[1] }}</td> <!-- Name -->
-                    <td>{{ application[2] }}</td> <!-- Position -->
-                    <td>{{ application[4] }}</td> <!-- Start Date -->
-                    <td>{{ application[5] }}</td> <!-- End Date -->
+                    <td>{{ authority[1] }}</td>
+                    <td>{{ authority[2] }}</td>
+                    <td>{{ authority[3] }}</td>
+                    <td>{{ authority[4] }}</td>
+                    <td>{{ authority[5] }}</td>
+                    <td>{{ authority[6] }}</td>
                     <td>
-                        {% if application[6] == 'Pending' %}
-                            Pending
-                        {% elif application[6] == 'Recommended' and application[7] %}
-                            Recommended on {{ application[7] }}
+                        {% if authority[7] == 'Approved' %}
+                            Approved
+                        {% elif authority[7] == 'Recommended' %}
+                            Approved
                         {% else %}
-                            {{ application[6] }}
+                            Pending
                         {% endif %}
-                    </td>
-                    <td>
-                        <form method="POST" action="{{ url_for('cancel_application', app_type='travel_authority', app_id=application[0]) }}" onsubmit="return confirmCancel('{{ application[1] }}')">
-                            <button type="submit" class="btn btn-danger {% if application[6] == 'Recommended' or application[6] == 'Approved' %}btn-disabled{% endif %}">Cancel Application</button>
-                        </form>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
 
-        <!-- Add Submit Buttons -->
-        <div class="text-center my-4">
-            <a href="{{ url_for('submit_document') }}" class="btn btn-primary btn-submit">Submit Application</a>
-            <a href="{{ url_for('document_tracker') }}" class="btn btn-primary btn-submit">Submit Document</a>
-        </div>        
-
-        <a href="{{ url_for('logout') }}" class="btn btn-secondary mt-3">Logout</a>
     </div>
 
     <script>
-        function confirmCancel(applicationName) {
-            return confirm('Are you sure you want to cancel the application for ' + applicationName + '?');
+        document.getElementById('nameFilter').addEventListener('keyup', function() {
+            filterTable();
+        });
+        
+        document.getElementById('positionFilter').addEventListener('keyup', function() {
+            filterTable();
+        });
+        
+        document.getElementById('dateFilter').addEventListener('change', function() {
+            filterTable();
+        });
+
+        function filterTable() {
+            let nameFilter = document.getElementById('nameFilter').value.toLowerCase();
+            let positionFilter = document.getElementById('positionFilter').value.toLowerCase();
+            let dateFilter = document.getElementById('dateFilter').value;
+
+            filterSpecificTable('ctoTable', nameFilter, positionFilter, dateFilter);
+            filterSpecificTable('leaveTable', nameFilter, positionFilter, dateFilter);
+            filterSpecificTable('travelTable', nameFilter, positionFilter, dateFilter);
+        }
+
+        function filterSpecificTable(tableId, nameFilter, positionFilter, dateFilter) {
+            let table = document.getElementById(tableId);
+            let tr = table.getElementsByTagName('tr');
+
+            for (let i = 1; i < tr.length; i++) {
+                let tdName = tr[i].getElementsByTagName('td')[0];
+                let tdPosition = tr[i].getElementsByTagName('td')[1];
+                let tdStartDate = tr[i].getElementsByTagName('td')[3];
+
+                if (tdName && tdPosition && tdStartDate) {
+                    let nameValue = tdName.textContent.toLowerCase();
+                    let positionValue = tdPosition.textContent.toLowerCase();
+                    let startDateValue = tdStartDate.textContent;
+
+                    let nameMatch = nameValue.includes(nameFilter);
+                    let positionMatch = positionValue.includes(positionFilter);
+                    let dateMatch = dateFilter === "" || startDateValue.startsWith(dateFilter);
+
+                    if (nameMatch && positionMatch && dateMatch) {
+                        tr[i].style.display = "";
+                    } else {
+                        tr[i].style.display = "none";
+                    }
+                }
+            }
         }
     </script>
-
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <a href="{{ url_for('submit_document') }}" class="btn btn-secondary mb-3">Submit Application</a>
+    <a href="{{ url_for('document_tracker') }}" class="btn btn-secondary mb-3">Submit Document</a>
+    
 </body>
 </html>
+
+{% endblock %}

@@ -3,7 +3,8 @@
 <h2>Recommended Applications</h2>
 
 <h3>CTO Applications</h3>
-<table class="table table-striped">
+<input type="text" id="ctoFilterInput" onkeyup="filterTable('ctoTable', 'ctoFilterInput')" placeholder="Search for names..">
+<table id="ctoTable" class="table table-striped">
     <thead>
         <tr>
             <th>ID</th>
@@ -31,7 +32,8 @@
 </table>
 
 <h3>Leave Applications</h3>
-<table class="table table-striped">
+<input type="text" id="leaveFilterInput" onkeyup="filterTable('leaveTable', 'leaveFilterInput')" placeholder="Search for names..">
+<table id="leaveTable" class="table table-striped">
     <thead>
         <tr>
             <th>ID</th>
@@ -40,7 +42,7 @@
             <th>Days</th>
             <th>Start Date</th>
             <th>End Date</th>
-    <!-- ID <th>Leave Type</th  >--> 
+            <th>Leave Type</th> <!-- New Leave Type column -->
             <th>Date Recommended</th>
         </tr>
     </thead>
@@ -53,7 +55,7 @@
             <td>{{ app[3] }}</td> <!-- Days -->
             <td>{{ app[4] }}</td> <!-- Start Date -->
             <td>{{ app[5] }}</td> <!-- End Date -->
-   <!--          <td>{{ app[6] }}</td> Display the leave type here -->
+            <td>{{ app[6] }}</td> <!-- Leave Type (now displayed) -->
             <td>{{ app[7] }}</td> <!-- Date Recommended -->
         </tr>
         {% endfor %}
@@ -61,7 +63,8 @@
 </table>
 
 <h3>Travel Authorities</h3>
-<table class="table table-striped">
+<input type="text" id="travelFilterInput" onkeyup="filterTable('travelTable', 'travelFilterInput')" placeholder="Search for names..">
+<table id="travelTable" class="table table-striped">
     <thead>
         <tr>
             <th>ID</th>
@@ -77,16 +80,44 @@
     <tbody>
         {% for app in travel_recommended_apps %}
         <tr>
-            <td>{{ app[0] }}</td> <!-- ID -->
-            <td>{{ app[3] }}</td> <!-- Name -->
-            <td>{{ app[4] }}</td> <!-- Position -->
-            <td>{{ app[8] }}</td> <!-- Start Date (was app[6]) -->
-            <td>{{ app[9] }}</td> <!-- End Date (was app[7]) -->
-            <td>{{ app[7] }}</td> <!-- Destination (was app[8]) -->
-            <td>{{ app[6] }}</td> <!-- Purpose (was app[9]) -->
-            <td>{{ app[10] }}</td> <!-- Date Recommended -->
+            <td>{{ app[0] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[8] }}</td>
+            <td>{{ app[9] }}</td>
+            <td>{{ app[7] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[11] }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+
+<script>
+function filterTable(tableId, inputId) {
+    var input, filter, table, tr, td, i, j, txtValue;
+    input = document.getElementById(inputId);
+    filter = input.value.toLowerCase();
+    table = document.getElementById(tableId);
+    tr = table.getElementsByTagName("tr");
+
+    // Loop through all table rows, and hide those who don't match the search query
+    for (i = 1; i < tr.length; i++) {
+        tr[i].style.display = "none"; // Hide the row initially
+        td = tr[i].getElementsByTagName("td");
+        for (j = 0; j < td.length; j++) {
+            if (td[j]) {
+                txtValue = td[j].textContent || td[j].innerText;
+                if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                    tr[i].style.display = ""; // Show the row if it matches
+                    break; // No need to check other cells in the row
+                }
+            }
+        }
+    }
+}
+</script>
+
+<a href="{{ url_for('recommender_dashboard') }}" class="btn btn-secondary mb-3">Go back to Dashboard</a>
+
 {% endblock %}
