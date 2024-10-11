@@ -17,7 +17,9 @@ file_names = [
     r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\recommender_dashboard.html',
     r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\user_dashboard.html',
     r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\unit_head_dashboard.html',
-]
+    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\recommended_head.html',   
+    r'Z:\Drix Office Docs\ProgramX\warm-hollows-62602\templates\change_password_user.html',     
+    ]
 
 # Open the output file in write mode
 with open('full_program.txt', 'w', encoding='utf-8') as outfile:

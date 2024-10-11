@@ -6,7 +6,7 @@ import pandas as pd
 from io import BytesIO
 from flask_babel import Babel
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify
-
+from flask import jsonify
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
@@ -43,22 +43,23 @@ def init_db():
     except Exception as e:
         print(f"General error: {e}")
 
-    with sqlite3.connect('documents.db') as conn:
-       with sqlite3.connect('documents.db') as conn:
-        # Create CTO Application table
-        conn.execute('''CREATE TABLE IF NOT EXISTS cto_application (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            position TEXT NOT NULL,
-            days INTEGER NOT NULL,
-            start_date TEXT NOT NULL,
-            end_date TEXT NOT NULL,
-            recommending_approval TEXT DEFAULT NULL, 
-            approval_status TEXT DEFAULT 'Pending'   
-        )''')
+    try:
+        with sqlite3.connect('documents.db') as conn:
+            # Create CTO Application table
+            conn.execute('''CREATE TABLE IF NOT EXISTS cto_application (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                position TEXT NOT NULL,
+                days INTEGER NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                recommending_approval TEXT DEFAULT NULL, 
+                approval_status TEXT DEFAULT 'Pending',
+                date_approved TEXT DEFAULT NULL   
+            )''')
 
-         # Create a table for recommended applications
-        conn.execute('''CREATE TABLE IF NOT EXISTS recommended_applications (
+            # Create a table for recommended applications
+            conn.execute('''CREATE TABLE IF NOT EXISTS recommended_applications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 app_id INTEGER NOT NULL,
                 app_type TEXT NOT NULL,
@@ -71,10 +72,10 @@ def init_db():
                 purpose TEXT,
                 leave_type TEXT,
                 date_recommended TEXT NOT NULL
-        )''')
+            )''')
 
-        # Create a table for approved applications
-        conn.execute('''CREATE TABLE IF NOT EXISTS approved_applications (
+            # Create a table for approved applications
+            conn.execute('''CREATE TABLE IF NOT EXISTS approved_applications (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 app_type TEXT NOT NULL,
                 name TEXT NOT NULL,
@@ -85,57 +86,74 @@ def init_db():
                 destination TEXT,
                 purpose TEXT,
                 date_recommended TEXT NOT NULL
-        )''')
+            )''')
 
-        # Create Leave Application table
-        conn.execute('''CREATE TABLE IF NOT EXISTS leave_application (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            position TEXT NOT NULL,
-            days INTEGER NOT NULL,
-            start_date TEXT NOT NULL,
-            end_date TEXT NOT NULL,
-            recommending_approval TEXT DEFAULT NULL, 
-            approval_status TEXT DEFAULT 'Pending'   
-        )''')
+            # Create Leave Application table
+            conn.execute('''CREATE TABLE IF NOT EXISTS leave_application (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                position TEXT NOT NULL,
+                days INTEGER NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                recommending_approval TEXT DEFAULT NULL, 
+                approval_status TEXT DEFAULT 'Pending',
+                date_approved TEXT DEFAULT NULL
+            )''')
 
-        # Create Travel Authority table
-        conn.execute('''CREATE TABLE IF NOT EXISTS travel_authority (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            position TEXT NOT NULL,
-            purpose TEXT NOT NULL,
-            start_date TEXT NOT NULL,
-            end_date TEXT NOT NULL,
-            destination TEXT NOT NULL,
-            recommending_approval TEXT DEFAULT NULL, 
-            approval_status TEXT DEFAULT 'Pending'   
-        )''')
-    print("Database initialized successfully")
+            # Create Travel Authority table
+            conn.execute('''CREATE TABLE IF NOT EXISTS travel_authority (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                position TEXT NOT NULL,
+                purpose TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                destination TEXT NOT NULL,
+                recommending_approval TEXT DEFAULT NULL, 
+                approval_status TEXT DEFAULT 'Pending',
+                date_approved TEXT DEFAULT NULL 
+            )''')
+        print("Database initialized successfully")
+    except sqlite3.DatabaseError as db_err:
+        print(f"Database error: {db_err}")
+    except Exception as e:
+        print(f"General error: {e}")
 
-
-init_db()
-
+import sqlite3
 
 def add_rejection_comment_column():
     with sqlite3.connect('documents.db') as conn:
-        # Add rejection_comment to CTO applications table
-        conn.execute('ALTER TABLE cto_application ADD COLUMN rejection_comment TEXT')
-
-        # Add rejection_comment to Leave applications table
-        conn.execute('ALTER TABLE leave_application ADD COLUMN rejection_comment TEXT')
-
-        # Add rejection_comment to Travel authorities table
-        conn.execute('ALTER TABLE travel_authority ADD COLUMN rejection_comment TEXT')
-
-    print("Columns added successfully")
-
+        # Adding rejection_comment column to cto_application
+        conn.execute('ALTER TABLE cto_application ADD COLUMN rejection_comment TEXT;')
+        conn.execute('ALTER TABLE leave_application ADD COLUMN rejection_comment TEXT;')
+        conn.execute('ALTER TABLE travel_authority ADD COLUMN rejection_comment TEXT;')
+        conn.commit()
+        print("Columns added successfully.")
 
 # Helper function to check allowed file extensions
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Routes
+@app.route('/add_column')
+def add_column():
+    try:
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('ALTER TABLE recommended_applications ADD COLUMN recommending_approval TEXT')
+        return "Column 'recommending_approval' added successfully!"
+    except sqlite3.OperationalError as e:
+        return f"Error: {e}"
+    
+@app.route('/add_recommending_approval_column')
+def add_recommending_approval_column():
+    try:
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('ALTER TABLE recommended_applications ADD COLUMN recommending_approval TEXT')
+        return "Column 'recommending_approval' added successfully!"
+    except sqlite3.OperationalError as e:
+        return f"Error: {e}"
+
 @app.route('/')
 def index():
     return render_template('login.html')
@@ -235,11 +253,41 @@ def admin_dashboard():
     if 'user_id' not in session or session.get('role') != 'admin':
         flash('Access denied')
         return redirect(url_for('index'))
+
     with sqlite3.connect('documents.db') as conn:
-        travel_authorities = conn.execute('SELECT * FROM travel_authority').fetchall()
-        cto_applications = conn.execute('SELECT * FROM cto_application').fetchall()
-        leave_applications = conn.execute('SELECT * FROM leave_application').fetchall()
-    return render_template('admin_dashboard.html', travel_authorities=travel_authorities, cto_applications=cto_applications, leave_applications=leave_applications)
+        # Count all applications
+        total_cto_applications = conn.execute('SELECT COUNT(*) FROM cto_application').fetchone()[0]
+        total_leave_applications = conn.execute('SELECT COUNT(*) FROM leave_application').fetchone()[0]
+        total_travel_authorities = conn.execute('SELECT COUNT(*) FROM travel_authority').fetchone()[0]
+        
+        # Count pending applications
+        pending_cto_applications = conn.execute('SELECT COUNT(*) FROM cto_application WHERE approval_status = "Pending"').fetchone()[0]
+        pending_leave_applications = conn.execute('SELECT COUNT(*) FROM leave_application WHERE approval_status = "Pending"').fetchone()[0]
+        pending_travel_authorities = conn.execute('SELECT COUNT(*) FROM travel_authority WHERE approval_status = "Pending"').fetchone()[0]
+
+        # Count applications for recommending
+        recommending_cto_applications = conn.execute('SELECT COUNT(*) FROM cto_application WHERE recommending_approval IS NOT NULL AND approval_status = "Pending"').fetchone()[0]
+        recommending_leave_applications = conn.execute('SELECT COUNT(*) FROM leave_application WHERE recommending_approval IS NOT NULL AND approval_status = "Pending"').fetchone()[0]
+        recommending_travel_authorities = conn.execute('SELECT COUNT(*) FROM travel_authority WHERE recommending_approval IS NOT NULL AND approval_status = "Pending"').fetchone()[0]
+
+        # Count approved applications
+        approved_cto_applications = conn.execute('SELECT COUNT(*) FROM cto_application WHERE approval_status = "Approved"').fetchone()[0]
+        approved_leave_applications = conn.execute('SELECT COUNT(*) FROM leave_application WHERE approval_status = "Approved"').fetchone()[0]
+        approved_travel_authorities = conn.execute('SELECT COUNT(*) FROM travel_authority WHERE approval_status = "Approved"').fetchone()[0]
+
+    return render_template('admin_dashboard.html', 
+                           total_cto=total_cto_applications,
+                           total_leave=total_leave_applications,
+                           total_travel=total_travel_authorities,
+                           pending_cto=pending_cto_applications,
+                           pending_leave=pending_leave_applications,
+                           pending_travel=pending_travel_authorities,
+                           recommending_cto=recommending_cto_applications,
+                           recommending_leave=recommending_leave_applications,
+                           recommending_travel=recommending_travel_authorities,
+                           approved_cto=approved_cto_applications,
+                           approved_leave=approved_leave_applications,
+                           approved_travel=approved_travel_authorities)
 
 @app.route('/view_users')
 def view_users():
@@ -284,14 +332,19 @@ def clear_data():
         admin_user = conn.execute('SELECT * FROM users WHERE username = ?', ('Admin',)).fetchone()
         if admin_user and check_password_hash(admin_user[3], admin_password):
             with sqlite3.connect('documents.db') as doc_conn:
+                # Clear all application data
                 doc_conn.execute('DELETE FROM cto_application')
                 doc_conn.execute('DELETE FROM leave_application')
                 doc_conn.execute('DELETE FROM travel_authority')
+                # Clear recommended and approved applications as well
+                doc_conn.execute('DELETE FROM recommended_applications')
+                doc_conn.execute('DELETE FROM approved_applications')
                 doc_conn.commit()
             flash('All data has been cleared successfully', 'success')
         else:
             flash('Invalid admin password', 'danger')
     return redirect(url_for('admin_dashboard'))
+
 
 
 @app.route('/export_excel')
@@ -373,33 +426,56 @@ def cancel_application(app_type, app_id):
 
 @app.route('/reject_application/<int:app_id>', methods=['POST'])
 def reject_application(app_id):
-    if 'user_id' not in session or session.get('role') != 'recommender':
+    if 'user_id' not in session:
+        return jsonify({'error': 'Access denied'}), 403
+
+    user_role = session.get('role')
+    if user_role not in ['approver', 'unit_head', 'recommender']:
         return jsonify({'error': 'Access denied'}), 403
 
     rejection_comment = request.form.get('rejection_comment')
-    
+    application_type = request.form.get('application_type')  # Get the application type from the request
+
     with sqlite3.connect('documents.db') as conn:
-        # Update the application status to 'Rejected' and add the rejection comment
-        conn.execute('UPDATE cto_application SET approval_status = "Rejected", rejection_comment = ? WHERE id = ?', (rejection_comment, app_id))
+        if application_type == 'cto':
+            conn.execute('''
+                UPDATE cto_application 
+                SET approval_status = 'Rejected', rejection_comment = ? 
+                WHERE id = ?
+            ''', (rejection_comment, app_id))
+        elif application_type == 'leave':
+            conn.execute('''
+                UPDATE leave_application 
+                SET approval_status = 'Rejected', rejection_comment = ? 
+                WHERE id = ?
+            ''', (rejection_comment, app_id))
+        elif application_type == 'travel_authority':
+            conn.execute('''
+                UPDATE travel_authority 
+                SET approval_status = 'Rejected', rejection_comment = ? 
+                WHERE id = ?
+            ''', (rejection_comment, app_id))
+
+        # Commit the changes
         conn.commit()
-    
-    # Notify user about rejection with the comment
-    # Your notification logic here
 
     return jsonify({'success': True})
 
 
 @app.route('/cto_application', methods=['GET', 'POST'])
 def cto_application():
+    user_id = session['user_id']  # Get the logged-in user's ID
+
     if request.method == 'POST':
+        # Handle form submission
         name = request.form['name']
         position = request.form['position']
         days = request.form['days']
         start_date = request.form['start_date']
         end_date = request.form['end_date']
         recommending_approval = request.form['recommending_approval']
-        user_id = session['user_id']
-        
+
+        # Insert the new CTO application into the database
         with sqlite3.connect('documents.db') as conn:
             conn.execute('''INSERT INTO cto_application (name, position, days, start_date, end_date, user_id, recommending_approval)
                             VALUES (?, ?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, user_id, recommending_approval))
@@ -408,20 +484,73 @@ def cto_application():
         flash('CTO Application submitted successfully!')
         return redirect(url_for('user_dashboard'))
 
-    # Fetch Unit Head and Recommender usernames for the dropdown
-    with sqlite3.connect('users.db') as conn:
-        unit_heads = conn.execute('SELECT username FROM users WHERE role = "unit_head"').fetchall()
-        recommenders = conn.execute('SELECT username FROM users WHERE role = "recommender"').fetchall()
+    else:
+        # Fetch existing CTO application for this user
+        with sqlite3.connect('documents.db') as conn:
+            conn.row_factory = sqlite3.Row  # Allows access to rows as dictionaries
+            cto_application = conn.execute('SELECT * FROM cto_application WHERE user_id = ?', (user_id,)).fetchone()
 
-    # Combine the lists and pass to the template
-    approving_users = [uh[0] for uh in unit_heads] + [rec[0] for rec in recommenders]
+        # Fetch Unit Head and Recommender usernames for the dropdown
+        with sqlite3.connect('users.db') as conn:
+            unit_heads = conn.execute('SELECT username FROM users WHERE role = "unit_head"').fetchall()
+            recommenders = conn.execute('SELECT username FROM users WHERE role = "recommender"').fetchall()
 
-    # Debugging: Print the list of approving_users
-    print(f"Approving Users: {approving_users}")
+        approving_users = [uh[0] for uh in unit_heads] + [rec[0] for rec in recommenders]
 
-    return render_template('cto_application.html', approving_users=approving_users)
+        # Pass the existing application (if any) to the template
+        return render_template('cto_application.html', approving_users=approving_users, cto_application=cto_application)
 
 
+@app.route('/print_cto_application/<int:cto_id>')
+def print_cto_application(cto_id):
+    with sqlite3.connect('documents.db') as conn:
+        conn.row_factory = sqlite3.Row  # Allows accessing rows as dictionaries
+        # Fetch all required fields from cto_application
+        cto_application = conn.execute('''
+            SELECT name, position, days, start_date, end_date, recommending_approval 
+            FROM cto_application 
+            WHERE id = ?
+        ''', (cto_id,)).fetchone()
+
+    if not cto_application:
+        return "CTO Application not found.", 404
+
+    # Render the print template with the application details
+    return render_template('cto_print_template.html', 
+                           name=cto_application['name'], 
+                           position=cto_application['position'], 
+                           days=cto_application['days'], 
+                           start_date=cto_application['start_date'], 
+                           end_date=cto_application['end_date'],
+                           recommending_approval=cto_application['recommending_approval'])
+
+
+@app.route('/submit_and_print_cto_application', methods=['POST'])
+def submit_and_print_cto_application():
+    user_id = session['user_id']  # Get the logged-in user's ID
+    
+    # Get form data
+    name = request.form['name']
+    position = request.form['position']
+    days = request.form['days']
+    start_date = request.form['start_date']
+    end_date = request.form['end_date']
+    recommending_approval = request.form['recommending_approval']
+    
+    # Insert the new CTO application into the database
+    with sqlite3.connect('documents.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO cto_application (name, position, days, start_date, end_date, user_id, recommending_approval)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (name, position, days, start_date, end_date, user_id, recommending_approval))
+        conn.commit()
+
+        # Get the last inserted ID
+        cto_id = cursor.lastrowid
+
+    # Redirect to the print view with the newly created CTO application
+    return redirect(url_for('print_cto_application', cto_id=cto_id))
 
 @app.route('/leave_application', methods=['GET', 'POST'])
 def leave_application():
@@ -432,41 +561,65 @@ def leave_application():
         start_date = request.form['start_date']
         end_date = request.form['end_date']
         leave_type = request.form['leave_type']
+        recommending_approval = request.form['recommending_approval']  # Capture recommender/Unit Head choice
         user_id = session['user_id']  # Assuming user is logged in
-        
+
         with sqlite3.connect('documents.db') as conn:
-            conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, NULL)''', (name, position, days, start_date, end_date, leave_type, user_id))
+            conn.execute('''
+                INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval))
             conn.commit()
             print("Leave application inserted successfully")
         
         flash('Leave Application submitted successfully!')
         return redirect(url_for('user_dashboard'))
     
-    return render_template('leave_application.html')
+    # Fetch Unit Heads and Recommenders for the dropdown
+    with sqlite3.connect('users.db') as conn:
+        unit_heads = conn.execute('SELECT username FROM users WHERE role = "unit_head"').fetchall()
+        recommenders = conn.execute('SELECT username FROM users WHERE role = "recommender"').fetchall()
+
+    # Combine the lists for dropdown
+    approving_users = [uh[0] for uh in unit_heads] + [rec[0] for rec in recommenders]
+
+    return render_template('leave_application.html', approving_users=approving_users)
+
 
 @app.route('/travel_authority', methods=['GET', 'POST'])
 def travel_authority():
     if request.method == 'POST':
         name = request.form['name']
         position = request.form['position']
-        date = request.form.get('date', '')  # Use get() to provide a default value
         purpose = request.form['purpose']
         host = request.form['host']
         start_date = request.form['start_date']
         end_date = request.form['end_date']
         destination = request.form['destination']
-        user_id = session['user_id']  # Assuming user is logged in
-        
+        recommending_approval = request.form['recommending_approval']  # Capture selected recommender
+        user_id = session['user_id']  # Logged-in user
+
         with sqlite3.connect('documents.db') as conn:
-            conn.execute('''INSERT INTO travel_authority (name, position, date, purpose, host, start_date, end_date, destination, user_id, recommending_approval)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)''', (name, position, date, purpose, host, start_date, end_date, destination, user_id))
+            conn.execute('''
+                INSERT INTO travel_authority 
+                (name, position, purpose, host, start_date, end_date, destination, user_id, recommending_approval)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (name, position, purpose, host, start_date, end_date, destination, user_id, recommending_approval))
             conn.commit()
-        
+
         flash('Travel Authority submitted successfully!')
         return redirect(url_for('user_dashboard'))
-    
-    return render_template('travel_authority.html')
+
+    # Fetch recommenders and unit heads for the dropdown
+    with sqlite3.connect('users.db') as conn:
+        recommenders = conn.execute('SELECT username FROM users WHERE role = "recommender"').fetchall()
+        unit_heads = conn.execute('SELECT username FROM users WHERE role = "unit_head"').fetchall()
+
+    # Combine the results into a single list
+    approving_users = [rec[0] for rec in recommenders] + [uh[0] for uh in unit_heads]
+
+    return render_template('travel_authority.html', approving_users=approving_users)
+
 
 @app.route('/change_role/<int:user_id>', methods=['POST'])
 def change_role(user_id):
@@ -572,10 +725,15 @@ def approver_dashboard():
     if 'user_id' not in session or session.get('role') != 'approver':
         flash('Access denied')
         return redirect(url_for('index'))
+
+    approver_username = session['username']  # Correctly fetch the logged-in approver's username
+
+    # Fetch applications assigned for approval
     with sqlite3.connect('documents.db') as conn:
         cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
         leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
         travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+
     return render_template(
         'approver_dashboard.html',
         cto_applications=cto_applications,
@@ -583,10 +741,12 @@ def approver_dashboard():
         travel_authorities=travel_authorities
     )
 
+
 @app.route('/approve_application/<int:app_id>', methods=['POST'])
 def approve_application(app_id):
     if 'user_id' not in session or session.get('role') != 'approver':
         return jsonify({'error': 'Access denied'}), 403
+
     application_type = request.form['application_type']
     
     with sqlite3.connect('documents.db') as conn:
@@ -594,7 +754,7 @@ def approve_application(app_id):
         if application_type == 'cto':
             application = conn.execute('SELECT name, position, days, start_date, end_date FROM cto_application WHERE id = ?', (app_id,)).fetchone()
             name, position, days, start_date, end_date = application
-            conn.execute('UPDATE cto_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+            conn.execute('UPDATE cto_application SET approval_status = "Approved" WHERE id = ?', (app_id,))
             conn.execute('''INSERT INTO approved_applications 
                             (app_type, name, position, days, start_date, end_date, destination, purpose, date_recommended)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, date("now"))''', 
@@ -603,7 +763,7 @@ def approve_application(app_id):
         elif application_type == 'leave':
             application = conn.execute('SELECT name, position, days, start_date, end_date FROM leave_application WHERE id = ?', (app_id,)).fetchone()
             name, position, days, start_date, end_date = application
-            conn.execute('UPDATE leave_application SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+            conn.execute('UPDATE leave_application SET approval_status = "Approved" WHERE id = ?', (app_id,))
             conn.execute('''INSERT INTO approved_applications 
                             (app_type, name, position, days, start_date, end_date, destination, purpose, date_recommended)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, date("now"))''', 
@@ -612,19 +772,26 @@ def approve_application(app_id):
         elif application_type == 'travel_authority':
             application = conn.execute('SELECT name, position, purpose, start_date, end_date, destination FROM travel_authority WHERE id = ?', (app_id,)).fetchone()
             name, position, purpose, start_date, end_date, destination = application
-            conn.execute('UPDATE travel_authority SET approval_status = "Approved", date_approved = date("now") WHERE id = ?', (app_id,))
+            conn.execute('UPDATE travel_authority SET approval_status = "Approved" WHERE id = ?', (app_id,))
             conn.execute('''INSERT INTO approved_applications 
                             (app_type, name, position, days, start_date, end_date, destination, purpose, date_recommended)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, date("now"))''', 
                             (application_type, name, position, 0, start_date, end_date, destination, purpose))
         
         conn.commit()
+    
     return jsonify({'success': True})
-
 
 @app.route('/recommend_approval/<int:app_id>', methods=['POST'])
 def recommend_approval(app_id):
-    if 'user_id' not in session or session.get('role') != 'recommender':
+    if 'user_id' not in session:
+        return jsonify({'error': 'Access denied'}), 403
+
+    user_role = session.get('role')
+    username = session.get('username')
+
+    # Allow both recommenders and unit heads to recommend approval
+    if user_role not in ['recommender', 'unit_head']:
         return jsonify({'error': 'Access denied'}), 403
 
     application_type = request.form['application_type']
@@ -639,18 +806,32 @@ def recommend_approval(app_id):
         elif application_type == 'travel_authority':
             application = conn.execute('SELECT * FROM travel_authority WHERE id = ?', (app_id,)).fetchone()
             conn.execute('UPDATE travel_authority SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
-        
-        # Add the application to the recommended_applications table
-        conn.execute('''INSERT INTO recommended_applications 
-                        (app_id, app_type, name, position, days, start_date, end_date, destination, purpose, leave_type, date_recommended)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date("now"))''', 
-                     (app_id, application_type, application[1], application[2], application[3], application[4], application[5], 
-                      application[6] if application_type == 'travel_authority' else None, 
-                      application[7] if application_type == 'travel_authority' else None, 
-                      application[6] if application_type == 'leave' else None))
+        else:
+            return jsonify({'error': 'Invalid application type'}), 400
+
+        # Insert into recommended_applications table
+        conn.execute('''
+            INSERT INTO recommended_applications 
+            (app_id, app_type, name, position, days, start_date, end_date, destination, purpose, leave_type, date_recommended, recommending_approval)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, date("now"), ?)
+        ''', (
+            app_id,  # Application ID
+            application_type,  # Type of the application (cto/leave/travel_authority)
+            application[1],  # Name
+            application[2],  # Position
+            application[3],  # Days (for leave or CTO)
+            application[4],  # Start Date
+            application[5],  # End Date
+            application[6] if application_type == 'travel_authority' else None,  # Destination for travel authority
+            application[7] if application_type == 'travel_authority' else None,  # Purpose for travel authority
+            application[6] if application_type == 'leave' else None,  # Leave type for leave applications
+            username  # The person recommending approval (e.g., the unit head or recommender)
+        ))
+
         conn.commit()
 
     return jsonify({'success': True})
+
 
 
 
@@ -745,16 +926,78 @@ def unit_head_dashboard():
         flash('Access denied')
         return redirect(url_for('index'))
 
+    unit_head_username = session['username']  # Ensure the logged-in unit head's username is used
+
     with sqlite3.connect('documents.db') as conn:
-        # Fetch applications and recommendations for the Unit Head
-        cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval IS NULL').fetchall()
-        leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval IS NULL').fetchall()
-        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval IS NULL').fetchall()
+        # Fetch applications specifically assigned to the logged-in unit head
+        cto_applications = conn.execute('''
+            SELECT id, name, position, days, start_date, end_date 
+            FROM cto_application 
+            WHERE recommending_approval = ? 
+            AND approval_status = "Pending"
+        ''', (unit_head_username,)).fetchall()
+
+        leave_applications = conn.execute('''
+            SELECT id, name, position, days, start_date, end_date 
+            FROM leave_application 
+            WHERE recommending_approval = ? 
+            AND approval_status = "Pending"
+        ''', (unit_head_username,)).fetchall()
+
+        travel_authorities = conn.execute('''
+            SELECT id, name, position, purpose, start_date, end_date, destination 
+            FROM travel_authority 
+            WHERE recommending_approval = ? 
+            AND approval_status = "Pending"
+        ''', (unit_head_username,)).fetchall()
 
     return render_template('unit_head_dashboard.html', 
                            cto_applications=cto_applications, 
                            leave_applications=leave_applications, 
                            travel_authorities=travel_authorities)
+
+@app.route('/recommended_head')
+def recommended_head():
+    if 'user_id' not in session or session.get('role') != 'unit_head':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    unit_head_username = session['username']  # Logged-in unit head's username
+    print(f"Unit Head Username: {unit_head_username}")  # Debugging line
+
+    with sqlite3.connect('documents.db') as conn:
+        # Fetch recommended CTO applications by this unit head
+        cto_recommended_apps = conn.execute('''
+            SELECT id, name, position, days, start_date, end_date, date_recommended 
+            FROM recommended_applications 
+            WHERE app_type = "cto" AND recommending_approval = ?
+        ''', (unit_head_username,)).fetchall()
+        print(f"CTO Recommended Apps: {len(cto_recommended_apps)}")  # Count instead of full output for cleaner debugging
+
+        # Fetch recommended Leave applications by this unit head
+        leave_recommended_apps = conn.execute('''
+            SELECT id, name, position, days, start_date, end_date, leave_type, date_recommended 
+            FROM recommended_applications 
+            WHERE app_type = "leave" AND recommending_approval = ?
+        ''', (unit_head_username,)).fetchall()
+        print(f"Leave Recommended Apps: {len(leave_recommended_apps)}")  # Cleaner output
+
+        # Fetch recommended Travel Authority applications by this unit head
+        travel_recommended_apps = conn.execute('''
+            SELECT id, name, position, purpose, start_date, end_date, destination, date_recommended 
+            FROM recommended_applications 
+            WHERE app_type = "travel_authority" AND recommending_approval = ?
+        ''', (unit_head_username,)).fetchall()
+        print(f"Travel Recommended Apps: {len(travel_recommended_apps)}")  # Cleaner output
+
+    # Check if data is fetched and returned correctly
+    if not cto_recommended_apps and not leave_recommended_apps and not travel_recommended_apps:
+        flash("No recommended applications found.")
+    
+    return render_template('recommended_head.html', 
+                           cto_recommended_apps=cto_recommended_apps, 
+                           leave_recommended_apps=leave_recommended_apps, 
+                           travel_recommended_apps=travel_recommended_apps)
 
 
 
@@ -767,7 +1010,7 @@ if __name__ == '__main__':
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Submission App</title>
+    <title>SDO Calbayog Tracker</title>
 
     <!-- Keep Bootstrap 5 only for consistency -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -846,7 +1089,7 @@ if __name__ == '__main__':
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('approved_applications') }}">
-                        <i class="fas fa-folder-check"></i> Approved Applications
+                        <i class="fas fa-file-signature"></i> Approved Applications <!-- Same icon as Recommended Applications -->
                     </a>
                 </li>
                 {% endif %}
@@ -955,40 +1198,63 @@ if __name__ == '__main__':
 
 {% extends "base.html" %}
 {% block content %}
-<h2>CTO Application</h2>
-<form method="POST" action="{{ url_for('cto_application') }}">
-    <div class="form-group">
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="position">Position:</label>
-        <input type="text" id="position" name="position" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="days">No. of Days applied:</label>
-        <input type="number" id="days" name="days" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="start_date">Start Date:</label>
-        <input type="date" id="start_date" name="start_date" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="end_date">End Date:</label>
-        <input type="date" id="end_date" name="end_date" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="recommending_approval">Recommending Approval:</label>
-        <select id="recommending_approval" name="recommending_approval" class="form-control" required>
-            <option value="">Select Recommender</option>
-            {% for user in approving_users %}
-                <option value="{{ user }}">{{ user }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <button type="submit" class="btn btn-primary">Submit</button>
-</form>
-<a href="{{ url_for('submit_document') }}" class="btn btn-secondary mt-3">Back</a>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CTO Application</title>
+</head>
+<body>
+    <form id="ctoForm" method="POST" action="{{ url_for('submit_and_print_cto_application') }}" target="_blank">
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="position">Position:</label>
+            <input type="text" id="position" name="position" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="days">No. of Days applied:</label>
+            <input type="number" id="days" name="days" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="start_date">Start Date:</label>
+            <input type="date" id="start_date" name="start_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="end_date">End Date:</label>
+            <input type="date" id="end_date" name="end_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="recommending_approval">Recommender:</label>
+            <select id="recommending_approval" name="recommending_approval" class="form-control" required>
+                <option value="">Select Recommender</option>
+                {% for user in approving_users %}
+                    <option value="{{ user }}">{{ user }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <!-- Submit and Print Button -->
+        <button type="button" class="btn btn-primary" onclick="handleSubmit()">Submit and Print CTO Application</button>
+    </form>
+</body>
+</html>
+
+<script>
+    function handleSubmit() {
+        // Submit the form to open the print preview in a new tab
+        const form = document.getElementById('ctoForm');
+        form.submit();
+
+        // Redirect to the dashboard after form submission
+        setTimeout(function() {
+            window.location.href = "{{ url_for('user_dashboard') }}";
+        }, 500); // Short delay to ensure form submission happens first
+    }
+</script>
 {% endblock %}
 
 
@@ -1032,6 +1298,15 @@ if __name__ == '__main__':
             <option value="Special Leave Benefits for Women">Special Leave Benefits for Women</option>
             <option value="Special Emergency (Calamity) Leave">Special Emergency (Calamity) Leave</option>
             <option value="Adoption Leave">Adoption Leave</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="recommending_approval">Recommending Approval:</label>
+        <select id="recommending_approval" name="recommending_approval" class="form-control" required>
+            <option value="">Select Recommender</option>
+            {% for user in approving_users %}
+                <option value="{{ user }}">{{ user }}</option>
+            {% endfor %}
         </select>
     </div>
     <button type="submit" class="btn btn-primary">Submit</button>
@@ -1210,6 +1485,15 @@ function redirectToForm() {
         <label for="destination">Destination:</label>
         <input type="text" id="destination" name="destination" class="form-control" required>
     </div>
+    <div class="form-group">
+        <label for="recommending_approval">Recommending Approval:</label>
+        <select id="recommending_approval" name="recommending_approval" class="form-control" required>
+            <option value="">Select Recommender</option>
+            {% for user in approving_users %}
+                <option value="{{ user }}">{{ user }}</option>
+            {% endfor %}
+        </select>
+    </div>
     <button type="submit" class="btn btn-primary">Submit</button>
 </form>
 <a href="{{ url_for('submit_document') }}" class="btn btn-secondary mt-3">Back</a>
@@ -1246,8 +1530,8 @@ function redirectToForm() {
                 <thead class="thead-dark">
                     <tr>
                         <th>ID</th>
+                        <th>Employee ID</th>
                         <th>Name</th>
-                        <th>Username</th>
                         <th>Role</th>
                         <th>Actions</th>
                     </tr>
@@ -1327,103 +1611,135 @@ function redirectToForm() {
 
 {% extends "base.html" %}
 {% block content %}
-<h2>Admin Dashboard</h2>
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Admin Dashboard</h2>
 
-<!-- Travel Authorities Table -->
-<h3>Travel Authorities</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Purpose</th>
-            <th>Host</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Destination</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for ta in travel_authorities %}
-        <tr>
-            <td>{{ ta[0] }}</td>
-            <td>{{ ta[1] }}</td>
-            <td>{{ ta[2] }}</td>
-            <td>{{ ta[4] }}</td>
-            <td>{{ ta[5] }}</td>
-            <td>{{ ta[6] }}</td>
-            <td>{{ ta[7] }}</td>
-            <td>{{ ta[8] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <!-- Application Counts -->
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total CTO Applications</h5>
+                        <p class="card-text">{{ total_cto }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Leave Applications</h5>
+                        <p class="card-text">{{ total_leave }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Travel Authorities</h5>
+                        <p class="card-text">{{ total_travel }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<!-- CTO Applications Table -->
-<h3>CTO Applications</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>No. of Day/s</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for cto in cto_applications %}
-        <tr>
-            <td>{{ cto[0] }}</td>
-            <td>{{ cto[1] }}</td>
-            <td>{{ cto[2] }}</td>
-            <td>{{ cto[3] }}</td>
-            <td>{{ cto[4] }}</td>
-            <td>{{ cto[5] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <h3 class="mt-4">Pending Applications</h3>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Pending CTO Applications</h5>
+                        <p class="card-text">{{ pending_cto }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Pending Leave Applications</h5>
+                        <p class="card-text">{{ pending_leave }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Pending Travel Authorities</h5>
+                        <p class="card-text">{{ pending_travel }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<!-- Leave Applications Table -->
-<h3>Leave Applications</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>No. of Day/s</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for leave in leave_applications %}
-        <tr>
-            <td>{{ leave[0] }}</td>
-            <td>{{ leave[1] }}</td>
-            <td>{{ leave[2] }}</td>
-            <td>{{ leave[3] }}</td>
-            <td>{{ leave[4] }}</td>
-            <td>{{ leave[5] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <h3 class="mt-4">Applications for Recommending</h3>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">For Recommending CTO Applications</h5>
+                        <p class="card-text">{{ recommending_cto }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">For Recommending Leave Applications</h5>
+                        <p class="card-text">{{ recommending_leave }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">For Recommending Travel Authorities</h5>
+                        <p class="card-text">{{ recommending_travel }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<!-- Button Section -->
-<div class="container mt-4">
+        <h3 class="mt-4">Approved Applications</h3>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Approved CTO Applications</h5>
+                        <p class="card-text">{{ approved_cto }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Approved Leave Applications</h5>
+                        <p class="card-text">{{ approved_leave }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Approved Travel Authorities</h5>
+                        <p class="card-text">{{ approved_travel }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+ <!-- Button Section -->
+ <div class="container mt-4">
     <div class="row">
         <!-- View Users Button -->
         <div class="col-md-4 mb-3">
@@ -1443,10 +1759,7 @@ function redirectToForm() {
                 <button type="submit" class="btn btn-warning btn-block">Import Users from Excel</button>
             </form>
         </div>
-        
     </div>
-
-    
     <div class="row mt-4">
         <!-- Submit Document Button -->
         <div class="col-md-6 mb-3">
@@ -1462,16 +1775,13 @@ function redirectToForm() {
         </div>
     </div>
 </div>
-
-<div class="row">
-    <!-- Clear Data Button with Modal Confirmation -->
+<!-- <div class="row">
     <div class="col-md-12 text-center mt-4">
         <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#confirmDeleteModal">
             Clear All Data
         </button>
     </div>
-</div>
-
+</div> -->
 <!-- Modal for Delete Confirmation -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
@@ -1498,6 +1808,25 @@ function redirectToForm() {
         </div>
     </div>
 </div>
+</div>
+
+
+<form action="{{ url_for('clear_data') }}" method="POST" onsubmit="return confirmClearData();">
+    <input type="password" name="admin_password" placeholder="Enter admin password" required>
+    <button type="submit" class="btn btn-danger">Clear All Data</button>
+</form>
+
+<script>
+function confirmClearData() {
+    return confirm('Are you sure you want to clear all data? This action cannot be undone.');
+}
+</script>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
 
 {% endblock %}
 
@@ -1505,6 +1834,7 @@ function redirectToForm() {
 {% extends "base.html" %}
 
 {% block content %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1513,145 +1843,207 @@ function redirectToForm() {
     <title>Approver Dashboard</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
-        .highlight {
-            background-color: #d4edda; /* Light green background */
+        body {
+            background-color: #f8f9fa;
         }
-        .btn-disabled {
-            pointer-events: none;
-            opacity: 0.65;
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .table {
+            margin-top: 20px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .table th {
+            background-color: #007bff;
+            color: white;
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef;
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.5rem;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
+
 <body>
-    <div class="container mt-5">
-        <h2>Approver Dashboard</h2>
 
-        <!-- CTO Applications Table -->
-        <h3>CTO Applications</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Approval Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in cto_applications %}
-                <tr id="cto-{{ app[0] }}">
-                    <td>{{ app[0] }}</td>
-                    <td>{{ app[1] }}</td>
-                    <td>{{ app[2] }}</td>
-                    <td>{{ app[3] }}</td>
-                    <td>{{ app[4] }}</td>
-                    <td>{{ app[5] }}</td>
-                    <td>{{ app[7] }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('approve_application', app_id=app[0]) }}" class="approve-form">
-                            <input type="hidden" name="application_type" value="cto">
-                            <button type="submit" class="btn btn-success approve-btn">Application Approved</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="container">
+    <h2 class="mb-4">Approver Dashboard</h2>
 
-        <!-- Leave Applications Table -->
-        <h3>Leave Applications</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Approval Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in leave_applications %}
-                <tr id="leave-{{ app[0] }}">
-                    <td>{{ app[0] }}</td>
-                    <td>{{ app[1] }}</td>
-                    <td>{{ app[2] }}</td>
-                    <td>{{ app[3] }}</td>
-                    <td>{{ app[4] }}</td>
-                    <td>{{ app[5] }}</td>
-                    <td>{{ app[7] }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('approve_application', app_id=app[0]) }}" class="approve-form">
-                            <input type="hidden" name="application_type" value="leave">
-                            <button type="submit" class="btn btn-success approve-btn">Application Approved</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- CTO Applications Table -->
+    <h4>CTO Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in cto_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>{{ application[7] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success approve-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Approve
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Reject -->
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-        <!-- Travel Authorities Table -->
-        <h3>Travel Authorities</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Purpose</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Destination</th>
-                    <th>Approval Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in travel_authorities %}
-                <tr id="travel-{{ app[0] }}">
-                    <td>{{ app[0] }}</td>
-                    <td>{{ app[1] }}</td>
-                    <td>{{ app[2] }}</td>
-                    <td>{{ app[3] }}</td>
-                    <td>{{ app[5] }}</td>
-                    <td>{{ app[6] }}</td>
-                    <td>{{ app[7] }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('approve_application', app_id=app[0]) }}" class="approve-form">
-                            <input type="hidden" name="application_type" value="travel_authority">
-                            <button type="submit" class="btn btn-success approve-btn">Application Approved</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $('.approve-form').on('submit', function(event) {
-                event.preventDefault();
-                var form = $(this);
-                var row = form.closest('tr');
-                var button = form.find('.approve-btn');
+    <!-- Leave Applications Table -->
+    <h4>Leave Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Leave Type</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in leave_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>{{ application[7] }}</td>
+                <td>{{ application[8] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success approve-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Approve
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
+    <!-- Travel Authorities Table -->
+    <h4>Travel Authorities</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Purpose</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for authority in travel_authorities %}
+            <tr id="row-{{ authority[0] }}">
+                <td>{{ authority[1] }}</td>
+                <td>{{ authority[2] }}</td>
+                <td>{{ authority[3] }}</td>
+                <td>{{ authority[4] }}</td>
+                <td>{{ authority[5] }}</td>
+                <td>{{ authority[8] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success approve-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Approve
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // AJAX for approving applications
+        $('.approve-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var applicationType = button.data('type');  // Get application type
+
+            $.ajax({
+                type: 'POST',
+                url: '/approve_application/' + appId,
+                data: { application_type: applicationType },
+                success: function(response) {
+                    if (response.success) {
+                        button.text('Approved').attr('disabled', true).removeClass('btn-success').addClass('btn-secondary');
+                        alert('Application successfully approved!');
+                    } else {
+                        alert('Error: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+
+        // AJAX for rejecting applications
+        $('.reject-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var rejectionComment = prompt("Please enter a reason for rejection:");
+
+            if (rejectionComment) {
                 $.ajax({
                     type: 'POST',
-                    url: form.attr('action'),
-                    data: form.serialize(),
+                    url: '/reject_application/' + appId,
+                    data: { rejection_comment: rejectionComment },
                     success: function(response) {
                         if (response.success) {
-                            row.addClass('highlight');
-                            button.removeClass('btn-success').addClass('btn-secondary btn-disabled').text('Approved');
+                            alert("Application rejected with comment: " + rejectionComment);
+                            button.closest('tr').remove();  // Remove the row from the table
                         } else {
                             alert('Error: ' + response.error);
                         }
@@ -1660,16 +2052,17 @@ function redirectToForm() {
                         alert('An error occurred. Please try again.');
                     }
                 });
-            });
+            }
         });
-    </script>
+    });
+</script>
 
-        <!-- Add buttons for navigation -->
-        <a href="{{ url_for('approved_applications') }}" class="btn btn-primary mb-3">View Approved Applications</a>
 </body>
+<a href="{{ url_for('approved_applications') }}" class="btn btn-primary mb-3">See Approved Applications</a>
 </html>
 
 {% endblock %}
+
 
 {% extends "base.html" %}
 {% block content %}
@@ -1846,12 +2239,12 @@ function filterTable(tableId, inputId) {
         {% for app in cto_recommended_apps %}
         <tr>
             <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
             <td>{{ app[3] }}</td>
             <td>{{ app[4] }}</td>
             <td>{{ app[5] }}</td>
             <td>{{ app[6] }}</td>
-            <td>{{ app[7] }}</td>
-            <td>{{ app[11] }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -1868,21 +2261,21 @@ function filterTable(tableId, inputId) {
             <th>Days</th>
             <th>Start Date</th>
             <th>End Date</th>
-            <th>Leave Type</th> <!-- New Leave Type column -->
+            <th>Leave Type</th>
             <th>Date Recommended</th>
         </tr>
     </thead>
     <tbody>
         {% for app in leave_recommended_apps %}
         <tr>
-            <td>{{ app[0] }}</td> <!-- ID -->
-            <td>{{ app[1] }}</td> <!-- Name -->
-            <td>{{ app[2] }}</td> <!-- Position -->
-            <td>{{ app[3] }}</td> <!-- Days -->
-            <td>{{ app[4] }}</td> <!-- Start Date -->
-            <td>{{ app[5] }}</td> <!-- End Date -->
-            <td>{{ app[6] }}</td> <!-- Leave Type (now displayed) -->
-            <td>{{ app[7] }}</td> <!-- Date Recommended -->
+            <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[7] }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -1907,13 +2300,13 @@ function filterTable(tableId, inputId) {
         {% for app in travel_recommended_apps %}
         <tr>
             <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
             <td>{{ app[3] }}</td>
             <td>{{ app[4] }}</td>
-            <td>{{ app[8] }}</td>
-            <td>{{ app[9] }}</td>
-            <td>{{ app[7] }}</td>
+            <td>{{ app[5] }}</td>
             <td>{{ app[6] }}</td>
-            <td>{{ app[11] }}</td>
+            <td>{{ app[7] }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -1961,152 +2354,201 @@ function filterTable(tableId, inputId) {
     <title>Recommender Dashboard</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
-        .highlight {
-            background-color: #fff3cd; /* Light yellow background */
+        body {
+            background-color: #f8f9fa;
         }
-        .btn-disabled {
-            pointer-events: none;
-            opacity: 0.65;
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .table {
+            margin-top: 20px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .table th {
+            background-color: #007bff;
+            color: white;
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef;
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.5rem;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
+
 <body>
-    <div class="container mt-5">
-        <h2>Recommender Dashboard</h2>
 
-        <!-- CTO Applications Table -->
-        <h3>CTO Applications</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in cto_applications %}
-                <tr id="cto-{{ app[0] }}">
-                    <td>{{ app[1] }}</td>
-                    <td>{{ app[2] }}</td>
-                    <td>{{ app[3] }}</td>
-                    <td>{{ app[4] }}</td>
-                    <td>{{ app[5] }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
-                            <input type="hidden" name="application_type" value="cto">
-                            <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
-                        </form>
-                        <form method="POST" action="{{ url_for('reject_application', app_id=app[0]) }}" class="reject-form mt-2">
-                            <input type="hidden" name="application_type" value="cto">
-                            <button type="button" class="btn btn-danger reject-btn">Reject Application</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="container">
+    <h2 class="mb-4">Recommender Dashboard</h2>
 
-        <!-- Leave Applications Table -->
-        <h3>Leave Applications</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Leave Type</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in leave_applications %}
-                <tr id="leave-{{ app[0] }}">
-                    <td>{{ app[1] }}</td>
-                    <td>{{ app[2] }}</td>
-                    <td>{{ app[3] }}</td>
-                    <td>{{ app[4] }}</td>
-                    <td>{{ app[5] }}</td>
-                    <td>{{ app[7] }}</td> <!-- Display the leave type here -->
-                    <td>
-                        <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
-                            <input type="hidden" name="application_type" value="leave">
-                            <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
-                        </form>
-                        <form method="POST" action="{{ url_for('reject_application', app_id=app[0]) }}" class="reject-form mt-2">
-                            <input type="hidden" name="application_type" value="leave">
-                            <button type="button" class="btn btn-danger reject-btn">Reject Application</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- CTO Applications Table -->
+    <h4>CTO Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in cto_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>
+                    <button class="btn btn-primary recommend-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Recommend
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-        <!-- Travel Authorities Table -->
-        <h3>Travel Authorities</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Purpose</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Destination</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in travel_authorities %}
-                <tr id="travel-{{ app[0] }}">
-                    <td>{{ app[1] }}</td> <!-- Name -->
-                    <td>{{ app[2] }}</td> <!-- Position -->
-                    <td>{{ app[4] }}</td> <!-- Purpose -->
-                    <td>{{ app[6] }}</td> <!-- Start Date -->
-                    <td>{{ app[7] }}</td> <!-- End Date -->
-                    <td>{{ app[8] }}</td> <!-- Destination -->
-                    <td>
-                        <form method="POST" action="{{ url_for('recommend_approval', app_id=app[0]) }}" class="recommend-form">
-                            <input type="hidden" name="application_type" value="travel_authority">
-                            <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
-                        </form>
-                        <form method="POST" action="{{ url_for('reject_application', app_id=app[0]) }}" class="reject-form mt-2">
-                            <input type="hidden" name="application_type" value="travel_authority">
-                            <button type="button" class="btn btn-danger reject-btn">Reject Application</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+    <!-- Leave Applications Table -->
+    <h4>Leave Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Leave Type</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in leave_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>{{ application[7] }}</td>
+                <td>
+                    <button class="btn btn-primary recommend-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Recommend
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-    <a href="{{ url_for('recommended_applications') }}" class="btn btn-secondary mb-3">Go to Recommended Applications</a>
+    <!-- Travel Authorities Table -->
+    <h4>Travel Authorities</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Purpose</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for authority in travel_authorities %}
+            <tr id="row-{{ authority[0] }}">
+                <td>{{ authority[1] }}</td>
+                <td>{{ authority[2] }}</td>
+                <td>{{ authority[3] }}</td>
+                <td>{{ authority[4] }}</td>
+                <td>{{ authority[5] }}</td>
+                <td>
+                    <button class="btn btn-primary recommend-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Recommend
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            // AJAX for recommend approval
-            $('.recommend-form').on('submit', function(event) {
-                event.preventDefault();
-                var form = $(this);
-                var row = form.closest('tr');
-                var button = form.find('.recommend-btn');
+</div>
 
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // AJAX for recommend approval
+        $('.recommend-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var applicationType = button.data('type');  // Get application type
+
+            $.ajax({
+                type: 'POST',
+                url: '/recommend_approval/' + appId,
+                data: { application_type: applicationType },
+                success: function(response) {
+                    if (response.success) {
+                        button.text('Recommended').attr('disabled', true).removeClass('btn-primary').addClass('btn-secondary');
+                        alert('Application successfully recommended!');
+                    } else {
+                        alert('Error: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+
+        // AJAX for reject application
+        $('.reject-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var rejectionComment = prompt("Please enter a reason for rejection:");
+
+            if (rejectionComment) {
                 $.ajax({
                     type: 'POST',
-                    url: form.attr('action'),
-                    data: form.serialize(),
+                    url: '/reject_application/' + appId,
+                    data: { rejection_comment: rejectionComment },
                     success: function(response) {
                         if (response.success) {
-                            row.addClass('highlight');
-                            button.removeClass('btn-warning').addClass('btn-secondary btn-disabled').text('Recommended');
+                            alert("Application rejected with comment: " + rejectionComment);
+                            button.closest('tr').remove();  // Remove the row from the table
                         } else {
                             alert('Error: ' + response.error);
                         }
@@ -2115,40 +2557,17 @@ function filterTable(tableId, inputId) {
                         alert('An error occurred. Please try again.');
                     }
                 });
-            });
-
-            // AJAX for reject application
-            $('.reject-btn').on('click', function() {
-                var form = $(this).closest('.reject-form');
-                var appId = form.attr('action').split('/').pop();
-                var rejectionComment = prompt("Please enter a reason for rejection:");
-
-                if (rejectionComment) {
-                    $.ajax({
-                        type: 'POST',
-                        url: form.attr('action'),
-                        data: { rejection_comment: rejectionComment },
-                        success: function(response) {
-                            if (response.success) {
-                                alert("Application rejected with comment: " + rejectionComment);
-                                form.closest('tr').remove();
-                            } else {
-                                alert('Error: ' + response.error);
-                            }
-                        },
-                        error: function() {
-                            alert('An error occurred. Please try again.');
-                        }
-                    });
-                }
-            });
+            }
         });
-    </script>
+    });
+</script>
+
 </body>
+<a href="{{ url_for('recommended_applications') }}" class="btn btn-primary mb-3">See Recommended Applications</a>
 </html>
 
-
 {% endblock %}
+
 
 {% extends "base.html" %}
 
@@ -2194,23 +2613,15 @@ function filterTable(tableId, inputId) {
         }
     </style>
 
-
     <div class="container">
         <h2 class="mb-4">User Dashboard</h2>
 
         <!-- Filter inputs -->
         <div class="row">
-            <!-- <div class="col-md-4">
-                <input type="text" id="nameFilter" class="form-control filter-input" placeholder="Filter by Name">
-            </div>
-            <div class="col-md-4">
-                <input type="text" id="positionFilter" class="form-control filter-input" placeholder="Filter by Position">
-            </div> -->
             <div class="col-md-4">
                 <input type="date" id="dateFilter" class="form-control filter-input" placeholder="Filter by Date">
             </div>
         </div>
-
 
         <!-- CTO Applications Table -->
         <h4>CTO Applications</h4>
@@ -2236,8 +2647,10 @@ function filterTable(tableId, inputId) {
                     <td>
                         {% if application[7] == 'Approved' %}
                             Approved
-                        {% elif application[7] == 'Recommended' %}
+                        {% elif application[6] == 'Recommended' %}
                             Recommended
+                        {% elif application[7] == 'Rejected' %}
+                            Rejected
                         {% else %}
                             Pending
                         {% endif %}
@@ -2271,10 +2684,12 @@ function filterTable(tableId, inputId) {
                     <td>{{ application[5] }}</td>
                     <td>{{ application[6] }}</td>
                     <td>
-                        {% if application[7] == 'Approved' %}
+                        {% if application[8] == 'Approved' %}
                             Approved
-                        {% elif application[7] == 'Recommended' %}
-                            Approved
+                        {% elif application[8] == 'Rejected' %}  <!-- Check for Rejected status -->
+                            Rejected
+                        {% elif application[7] == 'Recommended' %}  <!-- Check for Recommended status -->
+                            Recommended
                         {% else %}
                             Pending
                         {% endif %}
@@ -2308,10 +2723,12 @@ function filterTable(tableId, inputId) {
                     <td>{{ authority[5] }}</td>
                     <td>{{ authority[6] }}</td>
                     <td>
-                        {% if authority[7] == 'Approved' %}
+                        {% if authority[8] == 'Approved' %}
                             Approved
                         {% elif authority[7] == 'Recommended' %}
-                            Approved
+                            Recommended
+                        {% elif authority[8] == 'Rejected' %}  <!-- Check for Rejected status -->
+                            Rejected
                         {% else %}
                             Pending
                         {% endif %}
@@ -2324,47 +2741,31 @@ function filterTable(tableId, inputId) {
     </div>
 
     <script>
-        document.getElementById('nameFilter').addEventListener('keyup', function() {
-            filterTable();
-        });
-        
-        document.getElementById('positionFilter').addEventListener('keyup', function() {
-            filterTable();
-        });
-        
         document.getElementById('dateFilter').addEventListener('change', function() {
             filterTable();
         });
 
         function filterTable() {
-            let nameFilter = document.getElementById('nameFilter').value.toLowerCase();
-            let positionFilter = document.getElementById('positionFilter').value.toLowerCase();
             let dateFilter = document.getElementById('dateFilter').value;
 
-            filterSpecificTable('ctoTable', nameFilter, positionFilter, dateFilter);
-            filterSpecificTable('leaveTable', nameFilter, positionFilter, dateFilter);
-            filterSpecificTable('travelTable', nameFilter, positionFilter, dateFilter);
+            filterSpecificTable('ctoTable', dateFilter);
+            filterSpecificTable('leaveTable', dateFilter);
+            filterSpecificTable('travelTable', dateFilter);
         }
 
-        function filterSpecificTable(tableId, nameFilter, positionFilter, dateFilter) {
+        function filterSpecificTable(tableId, dateFilter) {
             let table = document.getElementById(tableId);
             let tr = table.getElementsByTagName('tr');
 
             for (let i = 1; i < tr.length; i++) {
-                let tdName = tr[i].getElementsByTagName('td')[0];
-                let tdPosition = tr[i].getElementsByTagName('td')[1];
                 let tdStartDate = tr[i].getElementsByTagName('td')[3];
 
-                if (tdName && tdPosition && tdStartDate) {
-                    let nameValue = tdName.textContent.toLowerCase();
-                    let positionValue = tdPosition.textContent.toLowerCase();
+                if (tdStartDate) {
                     let startDateValue = tdStartDate.textContent;
 
-                    let nameMatch = nameValue.includes(nameFilter);
-                    let positionMatch = positionValue.includes(positionFilter);
                     let dateMatch = dateFilter === "" || startDateValue.startsWith(dateFilter);
 
-                    if (nameMatch && positionMatch && dateMatch) {
+                    if (dateMatch) {
                         tr[i].style.display = "";
                     } else {
                         tr[i].style.display = "none";
@@ -2375,51 +2776,437 @@ function filterTable(tableId, inputId) {
     </script>
     <a href="{{ url_for('submit_document') }}" class="btn btn-secondary mb-3">Submit Application</a>
     <a href="{{ url_for('document_tracker') }}" class="btn btn-secondary mb-3">Submit Document</a>
-    
+
 </body>
 </html>
 
 {% endblock %}
 
+
 {% extends "base.html" %}
+
 {% block content %}
-<h2>Unit Head Dashboard</h2>
-<!-- CTO Applications Table -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unit Head Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .table {
+            margin-top: 20px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .table th {
+            background-color: #007bff;
+            color: white;
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef;
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.5rem;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2 class="mb-4">Unit Head Dashboard</h2>
+
+    <!-- CTO Applications Table -->
+    <h4>CTO Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in cto_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>{{ application[7] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success recommend-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Recommend
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Leave Applications Table -->
+    <h4>Leave Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in leave_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>{{ application[8] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success recommend-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Recommend
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Travel Authorities Table -->
+    <h4>Travel Authorities</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Purpose</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for authority in travel_authorities %}
+            <tr id="row-{{ authority[0] }}">
+                <td>{{ authority[1] }}</td>
+                <td>{{ authority[2] }}</td>
+                <td>{{ authority[3] }}</td>
+                <td>{{ authority[4] }}</td>
+                <td>{{ authority[5] }}</td>
+                <td>{{ authority[8] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success recommend-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Recommend
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // AJAX for recommending applications
+        $('.recommend-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var applicationType = button.data('type');  // Get application type
+
+            $.ajax({
+                type: 'POST',
+                url: '/recommend_approval/' + appId,
+                data: { application_type: applicationType },
+                success: function(response) {
+                    if (response.success) {
+                        button.text('Recommended').attr('disabled', true).removeClass('btn-primary').addClass('btn-secondary');
+                        alert('Application successfully recommended!');
+                    } else {
+                        alert('Error: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+
+        // AJAX for rejecting applications
+        $('.reject-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var rejectionComment = prompt("Please enter a reason for rejection:");
+
+            if (rejectionComment) {
+                $.ajax({
+                    type: 'POST',
+                    url: '/reject_application/' + appId,
+                    data: { rejection_comment: rejectionComment },
+                    success: function(response) {
+                        if (response.success) {
+                            alert("Application rejected with comment: " + rejectionComment);
+                            button.closest('tr').remove();  // Remove the row from the table
+                        } else {
+                            alert('Error: ' + response.error);
+                        }
+                    },
+                    error: function() {
+                        alert('An error occurred. Please try again.');
+                    }
+                });
+            }
+        });
+    });
+</script>
+
+</body>
+<a href="{{ url_for('recommended_head') }}" class="btn btn-primary mb-3">See Recommended Applications</a>
+</html>
+
+{% endblock %}
+
+
+{% extends "base.html" %}
+
+{% block content %}
+<h2>Recommended Applications for Unit Head</h2>
+
+<!-- CTO Applications -->
 <h3>CTO Applications</h3>
-<table class="table table-striped">
+<input type="text" id="ctoFilterInput" class="filter-input" onkeyup="filterTable('ctoTable', 'ctoFilterInput')" placeholder="Search for names..">
+<table id="ctoTable" class="table table-striped">
     <thead>
         <tr>
+            <th>ID</th>
             <th>Name</th>
             <th>Position</th>
             <th>Days</th>
             <th>Start Date</th>
             <th>End Date</th>
-            <th>Actions</th>
+            <th>Date Recommended</th>
         </tr>
     </thead>
     <tbody>
-        {% for app in cto_applications %}
+        {% for app in cto_recommended_apps %}
         <tr>
-            <td>{{ app }}</td>
-            <td>{{ app }}</td>
-            <td>{{ app }}</td>
-            <td>{{ app }}</td>
-            <td>{{ app }}</td>
-            <td>
-                <form method="POST" action="{{ url_for('recommend_approval', app_id=app) }}" class="recommend-form">
-                    <input type="hidden" name="application_type" value="cto">
-                    <button type="submit" class="btn btn-warning recommend-btn">Recommend Approval</button>
-                </form>
-                <form method="POST" action="{{ url_for('reject_application', app_id=app) }}" class="reject-form mt-2">
-                    <input type="hidden" name="application_type" value="cto">
-                    <button type="button" class="btn btn-danger reject-btn">Reject Application</button>
-                </form>
-            </td>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
-<!-- Similar tables for Leave Applications and Travel Authorities -->
+
+<!-- Leave Applications -->
+<h3>Leave Applications</h3>
+<input type="text" id="leaveFilterInput" class="filter-input" onkeyup="filterTable('leaveTable', 'leaveFilterInput')" placeholder="Search for names..">
+<table id="leaveTable" class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Days</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Leave Type</th>
+            <th>Date Recommended</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in leave_recommended_apps %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[7] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Travel Authority Applications -->
+<h3>Travel Authority Applications</h3>
+<input type="text" id="travelFilterInput" class="filter-input" onkeyup="filterTable('travelTable', 'travelFilterInput')" placeholder="Search for names..">
+<table id="travelTable" class="table table-striped">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Position</th>
+            <th>Purpose</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+            <th>Destination</th>
+            <th>Date Recommended</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for app in travel_recommended_apps %}
+        <tr>
+            <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[7] }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="{{ url_for('unit_head_dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    // Filtering function
+    function filterTable(tableId, inputId) {
+        var input, filter, table, tr, td, i, txtValue;
+        input = document.getElementById(inputId);
+        filter = input.value.toUpperCase();
+        table = document.getElementById(tableId);
+        tr = table.getElementsByTagName("tr");
+
+        for (i = 1; i < tr.length; i++) { // Skip the header row
+            tr[i].style.display = "none";  // Initially hide all rows
+
+            // Loop through all table columns (td) and search for matching content
+            td = tr[i].getElementsByTagName("td");
+            for (var j = 0; j < td.length; j++) {
+                if (td[j]) {
+                    txtValue = td[j].textContent || td[j].innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";  // Show the row if match is found
+                        break;  // Break to avoid further checks for the same row
+                    }
+                }
+            }
+        }
+    }
+
+    $(document).ready(function() {
+        // AJAX for recommending applications
+        $('.recommend-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var applicationType = button.data('type');  // Get application type
+
+            $.ajax({
+                type: 'POST',
+                url: '/recommend_approval/' + appId,
+                data: { application_type: applicationType },
+                success: function(response) {
+                    if (response.success) {
+                        button.text('Recommended').attr('disabled', true).removeClass('btn-primary').addClass('btn-secondary');
+                        alert('Application successfully recommended!');
+                    } else {
+                        alert('Error: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>
+
 {% endblock %}
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Change Password</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4 text-center">Change Password</h2>
+        <form method="POST" action="{{ url_for('change_password_user') }}">
+            <div class="form-group">
+                <label for="current_password">Current Password:</label>
+                <input type="password" id="current_password" name="current_password" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="new_password">New Password:</label>
+                <input type="password" id="new_password" name="new_password" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="confirm_password">Confirm New Password:</label>
+                <input type="password" id="confirm_password" name="confirm_password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Change Password</button>
+        </form>
+        <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
 
 

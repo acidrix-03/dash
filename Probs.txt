@@ -1,13 +1,8 @@
-please debug my code. 
+CTO Applications Table:
+in the "Status" columns, it only shows "Recommended". It should show "Approved" when the approver has already approved the application.
 
-Recommender Dashboard: 
-All (CTO, Leave, and Travel Authority) applications submitted by the users should reflect on the page.
-Add a "Recommend for Approval" button 
-upon clicking the button, it will change its color, change text to "Recommended", and will not be clickable anymore.
-The (CTO, Leave, or Travel Authority) applications will now be sent to the "Approver Dashboard.
+Leave Applications Table:
+show "Pending" if the application has not yet been Recommended, "Recommended", then "Approved" when appropriate.
 
-Approver Dashboard:
-Recommended (CTO, Leave, and Travel Authority) applications will be reflected here
-Add a "Approve Application" button 
-upon clicking the button, it will change its color, change text to "Approved", and will not be clickable anymore.
-The (CTO, Leave, or Travel Authority) applications will now be sent to the "Approver Dashboard.
+Travel Authorities Table:
+Add "Status" Column with entry the same as the other tables.

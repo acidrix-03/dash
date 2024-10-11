@@ -1,102 +1,134 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Admin Dashboard</h2>
-{% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-        {% for category, message in messages %}
-            <div class="alert alert-{{ category }}">{{ message }}</div>
-        {% endfor %}
-    {% endif %}
-{% endwith %}
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Admin Dashboard</h2>
 
-<!-- Travel Authorities Table -->
-<h3>Travel Authorities</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Purpose</th>
-            <th>Host</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Destination</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for ta in travel_authorities %}
-        <tr>
-            <td>{{ ta[0] }}</td>
-            <td>{{ ta[1] }}</td>
-            <td>{{ ta[2] }}</td>
-            <td>{{ ta[4] }}</td>
-            <td>{{ ta[5] }}</td>
-            <td>{{ ta[6] }}</td>
-            <td>{{ ta[7] }}</td>
-            <td>{{ ta[8] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <!-- Application Counts -->
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total CTO Applications</h5>
+                        <p class="card-text">{{ total_cto }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Leave Applications</h5>
+                        <p class="card-text">{{ total_leave }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Travel Authorities</h5>
+                        <p class="card-text">{{ total_travel }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<!-- CTO Applications Table -->
-<h3>CTO Applications</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>No. of Day/s</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for cto in cto_applications %}
-        <tr>
-            <td>{{ cto[0] }}</td>
-            <td>{{ cto[1] }}</td>
-            <td>{{ cto[2] }}</td>
-            <td>{{ cto[3] }}</td>
-            <td>{{ cto[4] }}</td>
-            <td>{{ cto[5] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <h3 class="mt-4">Pending Applications</h3>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Pending CTO Applications</h5>
+                        <p class="card-text">{{ pending_cto }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Pending Leave Applications</h5>
+                        <p class="card-text">{{ pending_leave }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Pending Travel Authorities</h5>
+                        <p class="card-text">{{ pending_travel }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<!-- Leave Applications Table -->
-<h3>Leave Applications</h3>
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>No. of Day/s</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for leave in leave_applications %}
-        <tr>
-            <td>{{ leave[0] }}</td>
-            <td>{{ leave[1] }}</td>
-            <td>{{ leave[2] }}</td>
-            <td>{{ leave[3] }}</td>
-            <td>{{ leave[4] }}</td>
-            <td>{{ leave[5] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+        <h3 class="mt-4">Applications for Recommending</h3>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">For Recommending CTO Applications</h5>
+                        <p class="card-text">{{ recommending_cto }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">For Recommending Leave Applications</h5>
+                        <p class="card-text">{{ recommending_leave }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">For Recommending Travel Authorities</h5>
+                        <p class="card-text">{{ recommending_travel }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-<!-- Button Section -->
-<div class="container mt-4">
+        <h3 class="mt-4">Approved Applications</h3>
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Approved CTO Applications</h5>
+                        <p class="card-text">{{ approved_cto }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Approved Leave Applications</h5>
+                        <p class="card-text">{{ approved_leave }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Approved Travel Authorities</h5>
+                        <p class="card-text">{{ approved_travel }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+ <!-- Button Section -->
+ <div class="container mt-4">
     <div class="row">
         <!-- View Users Button -->
         <div class="col-md-4 mb-3">
@@ -116,10 +148,7 @@
                 <button type="submit" class="btn btn-warning btn-block">Import Users from Excel</button>
             </form>
         </div>
-        
     </div>
-
-    
     <div class="row mt-4">
         <!-- Submit Document Button -->
         <div class="col-md-6 mb-3">
@@ -135,16 +164,13 @@
         </div>
     </div>
 </div>
-
-<div class="row">
-    <!-- Clear Data Button with Modal Confirmation -->
+<!-- <div class="row">
     <div class="col-md-12 text-center mt-4">
         <button type="button" class="btn btn-danger" data-toggle="modal" data-target="#confirmDeleteModal">
             Clear All Data
         </button>
     </div>
-</div>
-
+</div> -->
 <!-- Modal for Delete Confirmation -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
     <div class="modal-dialog" role="document">
@@ -171,5 +197,24 @@
         </div>
     </div>
 </div>
+</div>
+
+
+<form action="{{ url_for('clear_data') }}" method="POST" onsubmit="return confirmClearData();">
+    <input type="password" name="admin_password" placeholder="Enter admin password" required>
+    <button type="submit" class="btn btn-danger">Clear All Data</button>
+</form>
+
+<script>
+function confirmClearData() {
+    return confirm('Are you sure you want to clear all data? This action cannot be undone.');
+}
+</script>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+</html>
 
 {% endblock %}

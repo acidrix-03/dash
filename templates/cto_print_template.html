@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print CTO Application</title>
+    <style>
+        .cto-template {
+            position: relative;
+            width: 800px;
+            height: 600px;
+        }
+        img {
+            width: 100%;
+            height: auto;
+        }
+        .field {
+            position: absolute;
+            font-size: 16px;
+            font-family: Arial, sans-serif;
+            color: black;
+        }
+        .name { top: 487px; left: 580px; }
+        .position { top: 506px; left: 580px; }
+        .days { top: 210px; left: 100px; }
+        .start-date { top: 305px; left: 210px; }
+        .end-date { top: 325px; left: 210px; }
+        .recommender { top: 487px; left: 350px; } /* Adjust position for Recommender */
+    </style>
+</head>
+<body>
+    <div class="cto-template">
+        <img src="/static/cto_application_template.jpg" alt="CTO Template">
+        
+        <div class="field name">{{ name }}</div>
+        <!-- <div class="field position">{{ position }}</div> -->
+        <!-- <div class="field days">{{ days }}</div> -->
+        <div class="field start-date">{{ start_date }}</div>
+        <div class="field end-date">{{ end_date }}</div>
+        <div class="field recommender">{{ recommending_approval }}</div> <!-- Recommender is printed -->
+    </div>
+    <script>
+        window.onload = function() {
+            window.print();
+        };
+    </script>
+</body>
+</html>

@@ -20,12 +20,12 @@
         {% for app in cto_recommended_apps %}
         <tr>
             <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
             <td>{{ app[3] }}</td>
             <td>{{ app[4] }}</td>
             <td>{{ app[5] }}</td>
             <td>{{ app[6] }}</td>
-            <td>{{ app[7] }}</td>
-            <td>{{ app[11] }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -42,21 +42,21 @@
             <th>Days</th>
             <th>Start Date</th>
             <th>End Date</th>
-            <th>Leave Type</th> <!-- New Leave Type column -->
+            <th>Leave Type</th>
             <th>Date Recommended</th>
         </tr>
     </thead>
     <tbody>
         {% for app in leave_recommended_apps %}
         <tr>
-            <td>{{ app[0] }}</td> <!-- ID -->
-            <td>{{ app[1] }}</td> <!-- Name -->
-            <td>{{ app[2] }}</td> <!-- Position -->
-            <td>{{ app[3] }}</td> <!-- Days -->
-            <td>{{ app[4] }}</td> <!-- Start Date -->
-            <td>{{ app[5] }}</td> <!-- End Date -->
-            <td>{{ app[6] }}</td> <!-- Leave Type (now displayed) -->
-            <td>{{ app[7] }}</td> <!-- Date Recommended -->
+            <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[7] }}</td>
         </tr>
         {% endfor %}
     </tbody>
@@ -81,13 +81,13 @@
         {% for app in travel_recommended_apps %}
         <tr>
             <td>{{ app[0] }}</td>
+            <td>{{ app[1] }}</td>
+            <td>{{ app[2] }}</td>
             <td>{{ app[3] }}</td>
             <td>{{ app[4] }}</td>
-            <td>{{ app[8] }}</td>
-            <td>{{ app[9] }}</td>
-            <td>{{ app[7] }}</td>
+            <td>{{ app[5] }}</td>
             <td>{{ app[6] }}</td>
-            <td>{{ app[11] }}</td>
+            <td>{{ app[7] }}</td>
         </tr>
         {% endfor %}
     </tbody>

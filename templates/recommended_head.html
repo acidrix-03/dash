@@ -5,7 +5,8 @@
 
 <!-- CTO Applications -->
 <h3>CTO Applications</h3>
-<table class="table table-striped">
+<input type="text" id="ctoFilterInput" class="filter-input" onkeyup="filterTable('ctoTable', 'ctoFilterInput')" placeholder="Search for names..">
+<table id="ctoTable" class="table table-striped">
     <thead>
         <tr>
             <th>ID</th>
@@ -34,7 +35,8 @@
 
 <!-- Leave Applications -->
 <h3>Leave Applications</h3>
-<table class="table table-striped">
+<input type="text" id="leaveFilterInput" class="filter-input" onkeyup="filterTable('leaveTable', 'leaveFilterInput')" placeholder="Search for names..">
+<table id="leaveTable" class="table table-striped">
     <thead>
         <tr>
             <th>ID</th>
@@ -65,7 +67,8 @@
 
 <!-- Travel Authority Applications -->
 <h3>Travel Authority Applications</h3>
-<table class="table table-striped">
+<input type="text" id="travelFilterInput" class="filter-input" onkeyup="filterTable('travelTable', 'travelFilterInput')" placeholder="Search for names..">
+<table id="travelTable" class="table table-striped">
     <thead>
         <tr>
             <th>ID</th>
@@ -95,5 +98,61 @@
 </table>
 
 <a href="{{ url_for('unit_head_dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    // Filtering function
+    function filterTable(tableId, inputId) {
+        var input, filter, table, tr, td, i, txtValue;
+        input = document.getElementById(inputId);
+        filter = input.value.toUpperCase();
+        table = document.getElementById(tableId);
+        tr = table.getElementsByTagName("tr");
+
+        for (i = 1; i < tr.length; i++) { // Skip the header row
+            tr[i].style.display = "none";  // Initially hide all rows
+
+            // Loop through all table columns (td) and search for matching content
+            td = tr[i].getElementsByTagName("td");
+            for (var j = 0; j < td.length; j++) {
+                if (td[j]) {
+                    txtValue = td[j].textContent || td[j].innerText;
+                    if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = "";  // Show the row if match is found
+                        break;  // Break to avoid further checks for the same row
+                    }
+                }
+            }
+        }
+    }
+
+    $(document).ready(function() {
+        // AJAX for recommending applications
+        $('.recommend-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var applicationType = button.data('type');  // Get application type
+
+            $.ajax({
+                type: 'POST',
+                url: '/recommend_approval/' + appId,
+                data: { application_type: applicationType },
+                success: function(response) {
+                    if (response.success) {
+                        button.text('Recommended').attr('disabled', true).removeClass('btn-primary').addClass('btn-secondary');
+                        alert('Application successfully recommended!');
+                    } else {
+                        alert('Error: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+    });
+</script>
+</body>
+</html>
 
 {% endblock %}

@@ -42,23 +42,15 @@
         }
     </style>
 
-
     <div class="container">
         <h2 class="mb-4">User Dashboard</h2>
 
         <!-- Filter inputs -->
         <div class="row">
-            <!-- <div class="col-md-4">
-                <input type="text" id="nameFilter" class="form-control filter-input" placeholder="Filter by Name">
-            </div>
-            <div class="col-md-4">
-                <input type="text" id="positionFilter" class="form-control filter-input" placeholder="Filter by Position">
-            </div> -->
             <div class="col-md-4">
                 <input type="date" id="dateFilter" class="form-control filter-input" placeholder="Filter by Date">
             </div>
         </div>
-
 
         <!-- CTO Applications Table -->
         <h4>CTO Applications</h4>
@@ -84,8 +76,10 @@
                     <td>
                         {% if application[7] == 'Approved' %}
                             Approved
-                        {% elif application[7] == 'Recommended' %}
+                        {% elif application[6] == 'Recommended' %}
                             Recommended
+                        {% elif application[7] == 'Rejected' %}
+                            Rejected
                         {% else %}
                             Pending
                         {% endif %}
@@ -119,10 +113,12 @@
                     <td>{{ application[5] }}</td>
                     <td>{{ application[6] }}</td>
                     <td>
-                        {% if application[7] == 'Approved' %}
+                        {% if application[8] == 'Approved' %}
                             Approved
-                        {% elif application[7] == 'Recommended' %}
-                            Approved
+                        {% elif application[8] == 'Rejected' %}  <!-- Check for Rejected status -->
+                            Rejected
+                        {% elif application[7] == 'Recommended' %}  <!-- Check for Recommended status -->
+                            Recommended
                         {% else %}
                             Pending
                         {% endif %}
@@ -156,10 +152,12 @@
                     <td>{{ authority[5] }}</td>
                     <td>{{ authority[6] }}</td>
                     <td>
-                        {% if authority[7] == 'Approved' %}
+                        {% if authority[8] == 'Approved' %}
                             Approved
                         {% elif authority[7] == 'Recommended' %}
-                            Approved
+                            Recommended
+                        {% elif authority[8] == 'Rejected' %}  <!-- Check for Rejected status -->
+                            Rejected
                         {% else %}
                             Pending
                         {% endif %}
@@ -172,47 +170,31 @@
     </div>
 
     <script>
-        document.getElementById('nameFilter').addEventListener('keyup', function() {
-            filterTable();
-        });
-        
-        document.getElementById('positionFilter').addEventListener('keyup', function() {
-            filterTable();
-        });
-        
         document.getElementById('dateFilter').addEventListener('change', function() {
             filterTable();
         });
 
         function filterTable() {
-            let nameFilter = document.getElementById('nameFilter').value.toLowerCase();
-            let positionFilter = document.getElementById('positionFilter').value.toLowerCase();
             let dateFilter = document.getElementById('dateFilter').value;
 
-            filterSpecificTable('ctoTable', nameFilter, positionFilter, dateFilter);
-            filterSpecificTable('leaveTable', nameFilter, positionFilter, dateFilter);
-            filterSpecificTable('travelTable', nameFilter, positionFilter, dateFilter);
+            filterSpecificTable('ctoTable', dateFilter);
+            filterSpecificTable('leaveTable', dateFilter);
+            filterSpecificTable('travelTable', dateFilter);
         }
 
-        function filterSpecificTable(tableId, nameFilter, positionFilter, dateFilter) {
+        function filterSpecificTable(tableId, dateFilter) {
             let table = document.getElementById(tableId);
             let tr = table.getElementsByTagName('tr');
 
             for (let i = 1; i < tr.length; i++) {
-                let tdName = tr[i].getElementsByTagName('td')[0];
-                let tdPosition = tr[i].getElementsByTagName('td')[1];
                 let tdStartDate = tr[i].getElementsByTagName('td')[3];
 
-                if (tdName && tdPosition && tdStartDate) {
-                    let nameValue = tdName.textContent.toLowerCase();
-                    let positionValue = tdPosition.textContent.toLowerCase();
+                if (tdStartDate) {
                     let startDateValue = tdStartDate.textContent;
 
-                    let nameMatch = nameValue.includes(nameFilter);
-                    let positionMatch = positionValue.includes(positionFilter);
                     let dateMatch = dateFilter === "" || startDateValue.startsWith(dateFilter);
 
-                    if (nameMatch && positionMatch && dateMatch) {
+                    if (dateMatch) {
                         tr[i].style.display = "";
                     } else {
                         tr[i].style.display = "none";
@@ -223,7 +205,7 @@
     </script>
     <a href="{{ url_for('submit_document') }}" class="btn btn-secondary mb-3">Submit Application</a>
     <a href="{{ url_for('document_tracker') }}" class="btn btn-secondary mb-3">Submit Document</a>
-    
+
 </body>
 </html>
 

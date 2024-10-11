@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,145 +10,207 @@
     <title>Approver Dashboard</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
-        .highlight {
-            background-color: #d4edda; /* Light green background */
+        body {
+            background-color: #f8f9fa;
         }
-        .btn-disabled {
-            pointer-events: none;
-            opacity: 0.65;
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .table {
+            margin-top: 20px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .table th {
+            background-color: #007bff;
+            color: white;
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef;
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.5rem;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
         }
     </style>
 </head>
+
 <body>
-    <div class="container mt-5">
-        <h2>Approver Dashboard</h2>
 
-        <!-- CTO Applications Table -->
-        <h3>CTO Applications</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Approval Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in cto_applications %}
-                <tr id="cto-{{ app[0] }}">
-                    <td>{{ app[0] }}</td>
-                    <td>{{ app[1] }}</td>
-                    <td>{{ app[2] }}</td>
-                    <td>{{ app[3] }}</td>
-                    <td>{{ app[4] }}</td>
-                    <td>{{ app[5] }}</td>
-                    <td>{{ app[7] }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('approve_application', app_id=app[0]) }}" class="approve-form">
-                            <input type="hidden" name="application_type" value="cto">
-                            <button type="submit" class="btn btn-success approve-btn">Application Approved</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+<div class="container">
+    <h2 class="mb-4">Approver Dashboard</h2>
 
-        <!-- Leave Applications Table -->
-        <h3>Leave Applications</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Approval Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in leave_applications %}
-                <tr id="leave-{{ app[0] }}">
-                    <td>{{ app[0] }}</td>
-                    <td>{{ app[1] }}</td>
-                    <td>{{ app[2] }}</td>
-                    <td>{{ app[3] }}</td>
-                    <td>{{ app[4] }}</td>
-                    <td>{{ app[5] }}</td>
-                    <td>{{ app[7] }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('approve_application', app_id=app[0]) }}" class="approve-form">
-                            <input type="hidden" name="application_type" value="leave">
-                            <button type="submit" class="btn btn-success approve-btn">Application Approved</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- CTO Applications Table -->
+    <h4>CTO Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in cto_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>{{ application[7] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success approve-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Approve
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Reject -->
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
-        <!-- Travel Authorities Table -->
-        <h3>Travel Authorities</h3>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Purpose</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Destination</th>
-                    <th>Approval Status</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for app in travel_authorities %}
-                <tr id="travel-{{ app[0] }}">
-                    <td>{{ app[0] }}</td>
-                    <td>{{ app[1] }}</td>
-                    <td>{{ app[2] }}</td>
-                    <td>{{ app[3] }}</td>
-                    <td>{{ app[5] }}</td>
-                    <td>{{ app[6] }}</td>
-                    <td>{{ app[7] }}</td>
-                    <td>
-                        <form method="POST" action="{{ url_for('approve_application', app_id=app[0]) }}" class="approve-form">
-                            <input type="hidden" name="application_type" value="travel_authority">
-                            <button type="submit" class="btn btn-success approve-btn">Application Approved</button>
-                        </form>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <script>
-        $(document).ready(function() {
-            $('.approve-form').on('submit', function(event) {
-                event.preventDefault();
-                var form = $(this);
-                var row = form.closest('tr');
-                var button = form.find('.approve-btn');
+    <!-- Leave Applications Table -->
+    <h4>Leave Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Leave Type</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in leave_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>{{ application[7] }}</td>
+                <td>{{ application[8] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success approve-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Approve
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
 
+    <!-- Travel Authorities Table -->
+    <h4>Travel Authorities</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Purpose</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for authority in travel_authorities %}
+            <tr id="row-{{ authority[0] }}">
+                <td>{{ authority[1] }}</td>
+                <td>{{ authority[2] }}</td>
+                <td>{{ authority[3] }}</td>
+                <td>{{ authority[4] }}</td>
+                <td>{{ authority[5] }}</td>
+                <td>{{ authority[8] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success approve-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Approve
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // AJAX for approving applications
+        $('.approve-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var applicationType = button.data('type');  // Get application type
+
+            $.ajax({
+                type: 'POST',
+                url: '/approve_application/' + appId,
+                data: { application_type: applicationType },
+                success: function(response) {
+                    if (response.success) {
+                        button.text('Approved').attr('disabled', true).removeClass('btn-success').addClass('btn-secondary');
+                        alert('Application successfully approved!');
+                    } else {
+                        alert('Error: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+
+        // AJAX for rejecting applications
+        $('.reject-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var rejectionComment = prompt("Please enter a reason for rejection:");
+
+            if (rejectionComment) {
                 $.ajax({
                     type: 'POST',
-                    url: form.attr('action'),
-                    data: form.serialize(),
+                    url: '/reject_application/' + appId,
+                    data: { rejection_comment: rejectionComment },
                     success: function(response) {
                         if (response.success) {
-                            row.addClass('highlight');
-                            button.removeClass('btn-success').addClass('btn-secondary btn-disabled').text('Approved');
+                            alert("Application rejected with comment: " + rejectionComment);
+                            button.closest('tr').remove();  // Remove the row from the table
                         } else {
                             alert('Error: ' + response.error);
                         }
@@ -156,13 +219,13 @@
                         alert('An error occurred. Please try again.');
                     }
                 });
-            });
+            }
         });
-    </script>
+    });
+</script>
 
-        <!-- Add buttons for navigation -->
-        <a href="{{ url_for('approved_applications') }}" class="btn btn-primary mb-3">View Approved Applications</a>
 </body>
+<a href="{{ url_for('approved_applications') }}" class="btn btn-primary mb-3">See Approved Applications</a>
 </html>
 
 {% endblock %}
