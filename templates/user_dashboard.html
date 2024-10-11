@@ -11,10 +11,23 @@
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
         body {
-            background-color: #f8f9fa;
+            background-color: #f4f4f9;
         }
         .navbar {
             margin-bottom: 20px;
+        }
+        .sidebar {
+            background: #007bff;
+            color: white;
+            padding: 20px;
+            border-radius: 0.5rem;
+        }
+        .sidebar h5 {
+            margin-top: 0;
+        }
+        .sidebar .btn {
+            margin-top: 10px;
+            width: 100%;
         }
         .table {
             margin-top: 20px;
@@ -37,136 +50,171 @@
         .btn-custom:hover {
             background-color: #0056b3;
         }
-        .filter-input {
-            margin-bottom: 15px;
-        }
     </style>
+</head>
 
-    <div class="container">
-        <h2 class="mb-4">User Dashboard</h2>
+<body>
+    <div class="container-fluid">
+        <h2 class="mb-4 text-center">User Dashboard</h2>
 
-        <!-- Filter inputs -->
         <div class="row">
+            <!-- Sidebar for User Information -->
             <div class="col-md-4">
-                <input type="date" id="dateFilter" class="form-control filter-input" placeholder="Filter by Date">
+                <div class="sidebar">
+                    <h5>User Information</h5>
+                    <form method="POST" action="{{ url_for('update_user_info') }}">
+                        <div class="form-group">
+                            <label for="name">Name:</label>
+                            <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" readonly>
+                        </div>
+                        <div class="form-group">
+                            <label for="position">Position:</label>
+                            <input type="text" id="position" name="position" value="{{ session['position'] }}" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="office">Office:</label>
+                            <input type="text" id="office" name="office" value="{{ user_details[0] }}" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="salary">Salary:</label>
+                            <input type="number" id="salary" name="salary" value="{{ user_details[1] }}" class="form-control" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Info</button>
+                    </form>
+
+                    <h5 class="mt-4">Actions</h5>
+                    <a href="{{ url_for('submit_document') }}" class="btn btn-custom">Submit Application</a>
+                    <a href="{{ url_for('document_tracker') }}" class="btn btn-custom">Track Documents</a>
+                    <a href="{{ url_for('change_password_user') }}" class="btn btn-warning">Change Password</a>
+                </div>
+            </div>
+
+            <!-- Main content for filtering and application tables -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-body">
+                        <h4>Applications</h4>
+                        <input type="date" id="dateFilter" class="form-control filter-input" placeholder="Filter by Date" style="width: auto;">
+
+                        <!-- CTO Applications Table -->
+                        <h5 class="mt-4">CTO Applications</h5>
+                        <table class="table table-striped" id="ctoTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Days</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for application in cto_applications %}
+                                <tr>
+                                    <td>{{ application[1] }}</td>
+                                    <td>{{ application[2] }}</td>
+                                    <td>{{ application[3] }}</td>
+                                    <td>{{ application[4] }}</td>
+                                    <td>{{ application[5] }}</td>
+                                    <td>
+                                        {% if application[7] == 'Approved' %}
+                                            Approved
+                                        {% elif application[6] == 'Recommended' %}
+                                            Recommended
+                                        {% elif application[7] == 'Rejected' %}
+                                            Rejected
+                                        {% else %}
+                                            Pending
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <!-- Leave Applications Table -->
+                        <h5 class="mt-4">Leave Applications</h5>
+                        <table class="table table-striped" id="leaveTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Days</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Type of Leave</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for application in leave_applications %}
+                                <tr>
+                                    <td>{{ application[1] }}</td>
+                                    <td>{{ application[2] }}</td>
+                                    <td>{{ application[3] }}</td>
+                                    <td>{{ application[4] }}</td>
+                                    <td>{{ application[5] }}</td>
+                                    <td>{{ application[6] }}</td>
+                                    <td>
+                                        {% if application[8] == 'Approved' %}
+                                            Approved
+                                        {% elif application[8] == 'Rejected' %}
+                                            Rejected
+                                        {% elif application[7] == 'Recommended' %}
+                                            Recommended
+                                        {% else %}
+                                            Pending
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                        <!-- Travel Authority Table -->
+                        <h5 class="mt-4">Travel Authorities</h5>
+                        <table class="table table-striped" id="travelTable">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Position</th>
+                                    <th>Purpose</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Destination</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for authority in travel_authorities %}
+                                <tr>
+                                    <td>{{ authority[1] }}</td>
+                                    <td>{{ authority[2] }}</td>
+                                    <td>{{ authority[3] }}</td>
+                                    <td>{{ authority[4] }}</td>
+                                    <td>{{ authority[5] }}</td>
+                                    <td>{{ authority[6] }}</td>
+                                    <td>
+                                        {% if authority[8] == 'Approved' %}
+                                            Approved
+                                        {% elif authority[7] == 'Recommended' %}
+                                            Recommended
+                                        {% elif authority[8] == 'Rejected' %}
+                                            Rejected
+                                        {% else %}
+                                            Pending
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+
+                    </div>
+                </div>
             </div>
         </div>
-
-        <!-- CTO Applications Table -->
-        <h4>CTO Applications</h4>
-        <table class="table table-striped" id="ctoTable">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for application in cto_applications %}
-                <tr>
-                    <td>{{ application[1] }}</td>
-                    <td>{{ application[2] }}</td>
-                    <td>{{ application[3] }}</td>
-                    <td>{{ application[4] }}</td>
-                    <td>{{ application[5] }}</td>
-                    <td>
-                        {% if application[7] == 'Approved' %}
-                            Approved
-                        {% elif application[6] == 'Recommended' %}
-                            Recommended
-                        {% elif application[7] == 'Rejected' %}
-                            Rejected
-                        {% else %}
-                            Pending
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        <!-- Leave Applications Table -->
-        <h4>Leave Applications</h4>
-        <table class="table table-striped" id="leaveTable">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Type of Leave</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for application in leave_applications %}
-                <tr>
-                    <td>{{ application[1] }}</td>
-                    <td>{{ application[2] }}</td>
-                    <td>{{ application[3] }}</td>
-                    <td>{{ application[4] }}</td>
-                    <td>{{ application[5] }}</td>
-                    <td>{{ application[6] }}</td>
-                    <td>
-                        {% if application[8] == 'Approved' %}
-                            Approved
-                        {% elif application[8] == 'Rejected' %}  <!-- Check for Rejected status -->
-                            Rejected
-                        {% elif application[7] == 'Recommended' %}  <!-- Check for Recommended status -->
-                            Recommended
-                        {% else %}
-                            Pending
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
-        <!-- Travel Authority Table -->
-        <h4>Travel Authorities</h4>
-        <table class="table table-striped" id="travelTable">
-            <thead>
-                <tr>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Purpose</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Destination</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for authority in travel_authorities %}
-                <tr>
-                    <td>{{ authority[1] }}</td>
-                    <td>{{ authority[2] }}</td>
-                    <td>{{ authority[3] }}</td>
-                    <td>{{ authority[4] }}</td>
-                    <td>{{ authority[5] }}</td>
-                    <td>{{ authority[6] }}</td>
-                    <td>
-                        {% if authority[8] == 'Approved' %}
-                            Approved
-                        {% elif authority[7] == 'Recommended' %}
-                            Recommended
-                        {% elif authority[8] == 'Rejected' %}  <!-- Check for Rejected status -->
-                            Rejected
-                        {% else %}
-                            Pending
-                        {% endif %}
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-
     </div>
 
     <script>
@@ -203,8 +251,6 @@
             }
         }
     </script>
-    <a href="{{ url_for('submit_document') }}" class="btn btn-secondary mb-3">Submit Application</a>
-    <a href="{{ url_for('document_tracker') }}" class="btn btn-secondary mb-3">Submit Document</a>
 
 </body>
 </html>

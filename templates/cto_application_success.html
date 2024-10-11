@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>CTO Application Submitted Successfully!</h2>
+    <p>Your CTO application has been generated. You can download it below or go back to the dashboard.</p>
+
+    <!-- Download the generated application -->
+    <a href="{{ download_url }}" class="btn btn-success">Download Application</a>
+    
+    <!-- Print button -->
+    <button onclick="window.print()" class="btn btn-primary">Print Application</button>
+    
+    <!-- Back to dashboard -->
+    <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
+</div>
+{% endblock %}

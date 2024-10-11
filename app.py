@@ -191,6 +191,12 @@ def user_dashboard():
         return redirect(url_for('index'))
     
     user_id = session['user_id']
+
+    # Fetch user details from users.db (e.g., office and salary)
+    with sqlite3.connect('users.db') as conn:
+        user_details = conn.execute('SELECT office, salary FROM users WHERE id = ?', (user_id,)).fetchone()
+
+    # Fetch applications from documents.db
     with sqlite3.connect('documents.db') as conn:
         # Fetch the CTO applications
         cto_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, recommending_approval, approval_status, date_recommended FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
@@ -201,7 +207,43 @@ def user_dashboard():
         # Fetch the travel authority applications
         travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, destination, recommending_approval, approval_status FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
 
-    return render_template('user_dashboard.html', cto_applications=cto_applications, leave_applications=leave_applications, travel_authorities=travel_authorities)
+        # Fetch the count of pending, recommended, and approved applications
+        pending_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Pending"', (user_id,)).fetchone()[0]
+        recommended_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Recommended"', (user_id,)).fetchone()[0]
+        approved_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Approved"', (user_id,)).fetchone()[0]
+    
+    stats = {
+        'pending': pending_count,
+        'recommended': recommended_count,
+        'approved': approved_count
+    }
+
+    # Pass all relevant data to the template
+    return render_template('user_dashboard.html', 
+                           user_details=user_details, 
+                           stats=stats, 
+                           cto_applications=cto_applications, 
+                           leave_applications=leave_applications, 
+                           travel_authorities=travel_authorities)
+
+
+def get_user_info_and_stats(user_id):
+    with sqlite3.connect('users.db') as conn:
+        user_details = conn.execute('SELECT office, salary FROM users WHERE id = ?', (user_id,)).fetchone()
+
+    with sqlite3.connect('documents.db') as conn:
+        pending_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Pending"', (user_id,)).fetchone()[0]
+        recommended_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Recommended"', (user_id,)).fetchone()[0]
+        approved_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Approved"', (user_id,)).fetchone()[0]
+    
+    stats = {
+        'pending': pending_count,
+        'recommended': recommended_count,
+        'approved': approved_count
+    }
+    
+    return user_details, stats
+
 
 @app.route('/logout')
 def logout():
@@ -300,7 +342,7 @@ def view_users():
     page = request.args.get('page', 1, type=int)  # Current page number (default is 1)
     per_page = 20  # Number of users per page
 
-    query = 'SELECT * FROM users WHERE 1=1'
+    query = 'SELECT id, name, username, position, role FROM users WHERE 1=1'
     params = []
 
     if search:
@@ -324,7 +366,6 @@ def view_users():
     return render_template('view_users.html', users=users, page=page, total_pages=total_pages, search=search, letter=letter)
 
 
-
 @app.route('/clear_data', methods=['POST'])
 def clear_data():
     admin_password = request.form['admin_password']
@@ -345,6 +386,26 @@ def clear_data():
             flash('Invalid admin password', 'danger')
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/change_position', methods=['GET', 'POST'])
+def change_position():
+    if 'user_id' not in session:
+        flash('Please log in first.')
+        return redirect(url_for('index'))
+
+    if request.method == 'POST':
+        new_position = request.form['position']
+        
+        with sqlite3.connect('users.db') as conn:
+            conn.execute('UPDATE users SET position = ? WHERE id = ?', (new_position, session['user_id']))
+            conn.commit()
+        
+        session['position'] = new_position  # Update session with new position
+        flash('Position updated successfully.')
+        return redirect(url_for('user_dashboard'))
+
+    # Check if 'position' exists in session
+    current_position = session.get('position', 'Not set')  # Use default value if not set
+    return render_template('change_position.html', current_position=current_position)
 
 
 @app.route('/export_excel')
@@ -557,33 +618,38 @@ def leave_application():
     if request.method == 'POST':
         name = request.form['name']
         position = request.form['position']
+        office = request.form['office']  # Capture office
+        salary = request.form['salary']  # Capture salary
         days = request.form['days']
         start_date = request.form['start_date']
         end_date = request.form['end_date']
         leave_type = request.form['leave_type']
-        recommending_approval = request.form['recommending_approval']  # Capture recommender/Unit Head choice
+        recommending_approval = request.form['recommending_approval']
         user_id = session['user_id']  # Assuming user is logged in
 
+        # Store the data in the database
         with sqlite3.connect('documents.db') as conn:
             conn.execute('''
-                INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval))
+                INSERT INTO leave_application (name, position, office, salary, days, start_date, end_date, leave_type, user_id, recommending_approval)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (name, position, office, salary, days, start_date, end_date, leave_type, user_id, recommending_approval))
             conn.commit()
-            print("Leave application inserted successfully")
-        
+
         flash('Leave Application submitted successfully!')
         return redirect(url_for('user_dashboard'))
-    
+
     # Fetch Unit Heads and Recommenders for the dropdown
     with sqlite3.connect('users.db') as conn:
         unit_heads = conn.execute('SELECT username FROM users WHERE role = "unit_head"').fetchall()
         recommenders = conn.execute('SELECT username FROM users WHERE role = "recommender"').fetchall()
 
-    # Combine the lists for dropdown
     approving_users = [uh[0] for uh in unit_heads] + [rec[0] for rec in recommenders]
 
-    return render_template('leave_application.html', approving_users=approving_users)
+    # Fetch user details for the sidebar
+    user_details, stats = get_user_info_and_stats(session['user_id'])
+
+    # Pass approving_users, user_details, and stats to the template
+    return render_template('leave_application.html', approving_users=approving_users, user_details=user_details, stats=stats)
 
 
 @app.route('/travel_authority', methods=['GET', 'POST'])
@@ -827,12 +893,8 @@ def recommend_approval(app_id):
             application[6] if application_type == 'leave' else None,  # Leave type for leave applications
             username  # The person recommending approval (e.g., the unit head or recommender)
         ))
-
         conn.commit()
-
     return jsonify({'success': True})
-
-
 
 
 @app.route('/recommender_dashboard')
@@ -999,7 +1061,149 @@ def recommended_head():
                            leave_recommended_apps=leave_recommended_apps, 
                            travel_recommended_apps=travel_recommended_apps)
 
+@app.route('/edit_user/<int:user_id>', methods=['GET', 'POST'])
+def edit_user(user_id):
+    if request.method == 'POST':
+        name = request.form['name']
+        username = request.form['username']
+        position = request.form['position']  # Capture the updated position
+        role = request.form['role']
+        
+        # Update the user details including the position
+        with sqlite3.connect('users.db') as conn:
+            conn.execute('UPDATE users SET name = ?, username = ?, position = ?, role = ? WHERE id = ?', 
+                         (name, username, position, role, user_id))
+            conn.commit()
 
+        # If the logged-in user is being edited, update the session position
+        if user_id == session.get('user_id'):
+            session['position'] = position  # Update the position in session data
+
+        flash('User details updated successfully')
+        return redirect(url_for('view_users'))
+
+    # Fetch user details for the form
+    with sqlite3.connect('users.db') as conn:
+        user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
+
+    return render_template('edit_user.html', user=user)
+
+
+
+@app.route('/print_travel_authority/<int:travel_id>')
+def print_travel_authority(travel_id):
+    with sqlite3.connect('documents.db') as conn:
+        conn.row_factory = sqlite3.Row  # Allows accessing rows as dictionaries
+        # Fetch the travel authority data from the database
+        travel_authority = conn.execute('''
+            SELECT name, position, purpose, host, start_date, end_date, destination, recommending_approval 
+            FROM travel_authority 
+            WHERE id = ?
+        ''', (travel_id,)).fetchone()
+
+    if not travel_authority:
+        return "Travel Authority not found.", 404
+
+    # Render the template and pass the application data
+    return render_template('travel_authority_print_template.html',
+                           name=travel_authority['name'], 
+                           position=travel_authority['position'], 
+                           purpose=travel_authority['purpose'], 
+                           host=travel_authority['host'],  # Add host here
+                           start_date=travel_authority['start_date'], 
+                           end_date=travel_authority['end_date'],
+                           destination=travel_authority['destination'],
+                           recommending_approval=travel_authority['recommending_approval'])
+
+
+@app.route('/submit_and_print_travel_authority', methods=['POST'])
+def submit_and_print_travel_authority():
+    user_id = session['user_id']  # Get the logged-in user's ID
+    
+    # Get form data
+    name = request.form['name']
+    position = request.form['position']
+    purpose = request.form['purpose']
+    host = request.form['host']  # Fetch the 'host' field
+    destination = request.form['destination']
+    start_date = request.form['start_date']
+    end_date = request.form['end_date']
+    recommending_approval = request.form['recommending_approval']
+    
+    # Insert the new Travel Authority application into the database
+    with sqlite3.connect('documents.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            INSERT INTO travel_authority (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval))
+        conn.commit()
+
+        # Get the last inserted ID
+        travel_id = cursor.lastrowid
+
+    # Redirect to the print view with the newly created Travel Authority application
+    return redirect(url_for('print_travel_authority', travel_id=travel_id))
+
+def add_office_and_salary_columns():
+    with sqlite3.connect('users.db') as conn:
+        # Add 'office' column if it doesn't already exist
+        try:
+            conn.execute('ALTER TABLE users ADD COLUMN office TEXT')
+        except sqlite3.OperationalError:
+            print("Column 'office' already exists.")
+        
+        # Add 'salary' column if it doesn't already exist
+        try:
+            conn.execute('ALTER TABLE users ADD COLUMN salary INTEGER')
+        except sqlite3.OperationalError:
+            print("Column 'salary' already exists.")
+        
+        conn.commit()
+
+@app.route('/update_user_info', methods=['POST'])
+def update_user_info():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    
+    user_id = session['user_id']
+    office = request.form['office']
+    salary = request.form['salary']
+    position = request.form['position']  # Capture the updated position
+
+    # Update the user's office, salary, and position in the database
+    with sqlite3.connect('users.db') as conn:
+        conn.execute('UPDATE users SET office = ?, salary = ?, position = ? WHERE id = ?', 
+                     (office, salary, position, user_id))
+        conn.commit()
+
+    # Optionally, update the session variables if you are using them
+    session['position'] = position
+
+    flash('User information updated successfully!')
+
+    # Fetch updated user details
+    user_details, stats = get_user_info_and_stats(user_id)
+
+    # Fetch applications from documents.db
+    with sqlite3.connect('documents.db') as conn:
+        # Fetch the CTO applications
+        cto_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, recommending_approval, approval_status, date_recommended FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
+        
+        # Fetch the leave applications
+        leave_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, leave_type, recommending_approval, approval_status, date_recommended FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
+        
+        # Fetch the travel authority applications
+        travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, destination, recommending_approval, approval_status FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
+
+    # Pass updated user details and application data to the dashboard template
+    return render_template('user_dashboard.html', 
+                           user_details=user_details, 
+                           stats=stats, 
+                           cto_applications=cto_applications, 
+                           leave_applications=leave_applications, 
+                           travel_authorities=travel_authorities)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))  # Get the PORT from environment, default to 5000

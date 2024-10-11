@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Authority Application</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .template {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: auto;
+            z-index: -1;
+        }
+        .text-field {
+            position: absolute;
+            font-family: Arial, sans-serif;
+        }
+        /* Adjust positions according to where you want the text to appear on the template */
+        .name1 {
+            top: 512px; /* Adjust the position */
+            left: 495px; /* Adjust the position */
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .name {
+            top: 1075px;
+            left: 140px;
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .position {
+            top: 565px;
+            left: 495px;
+            font-size: 18px;
+        }
+        .purpose {
+            top: 670px;
+            left: 495px;
+            font-size: 18px;
+        }
+        .host {
+            top: 750px;
+            left: 495px;
+            font-size: 18px;
+        }
+        .start-date {
+            top: 805px;
+            left: 495px;
+            font-size: 18px;
+        }
+        .end-date {
+            top: 805px;
+            left: 600px;
+            font-size: 18px;
+        }
+        .destination {
+            top: 860px;
+            left: 495px;
+            font-size: 18px;
+        }
+        .recommender {
+            top: 1350px;
+            left: 140px;
+            font-size: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="{{ url_for('static', filename='travel_authority_template.jpg') }}" alt="Travel Authority Template" class="template">
+
+        <div class="text-field name1">{{ name }}</div>
+        <div class="text-field name">{{ name }}</div>
+        <div class="text-field position">{{ position }}</div>
+        <div class="text-field purpose">{{ purpose }}</div>
+        <div class="text-field host">{{ host }}</div> <!-- Host of Activity -->
+        <div class="text-field start-date">{{ start_date }} - </div>
+        <div class="text-field end-date">{{ end_date }}</div>
+        <div class="text-field destination">{{ destination }}</div>
+        <div class="text-field recommender">{{ recommending_approval }}</div>
+    </div>
+</body>
+</html>
+
+{% endblock %}

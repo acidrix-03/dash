@@ -49,7 +49,7 @@
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
         <a class="navbar-brand" href="#">
             {% if session.get('username') %}
-                {{ session['username'] }} <!-- Display username if logged in -->
+                {{ session['username'] }} (Position: {{ session['position'] }}) <!-- Display username and position if logged in -->
             {% else %}
                 DocApp <!-- Display "DocApp" on login page or when not logged in -->
             {% endif %}
@@ -82,7 +82,7 @@
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('approved_applications') }}">
-                        <i class="fas fa-file-signature"></i> Approved Applications <!-- Same icon as Recommended Applications -->
+                        <i class="fas fa-file-signature"></i> Approved Applications
                     </a>
                 </li>
                 {% endif %}
@@ -127,6 +127,11 @@
                         <i class="fas fa-folder-open"></i> Document Tracker
                     </a>
                 </li>
+                <!-- <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('change_position') }}">
+                        <i class="fas fa-user-cog"></i> Change Position
+                    </a>
+                </li> -->
                 <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('logout') }}">
                         <i class="fas fa-sign-out-alt"></i> Logout

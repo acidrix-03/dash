@@ -1,49 +1,68 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Travel Authority</h2>
-<form method="POST" action="{{ url_for('travel_authority') }}">
-    <div class="form-group">
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="position">Position:</label>
-        <input type="text" id="position" name="position" class="form-control" required>
-    </div>
-    <!-- <div class="form-group">
-        <label for="date">Date:</label>
-        <input type="date" id="date" name="date" class="form-control" required>
-    </div> -->
-    <div class="form-group">
-        <label for="purpose">Purpose:</label>
-        <input type="text" id="purpose" name="purpose" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="host">Host of Activity:</label>
-        <input type="text" id="host" name="host" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="start_date">Start Date:</label>
-        <input type="date" id="start_date" name="start_date" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="end_date">End Date:</label>
-        <input type="date" id="end_date" name="end_date" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="destination">Destination:</label>
-        <input type="text" id="destination" name="destination" class="form-control" required>
-    </div>
-    <div class="form-group">
-        <label for="recommending_approval">Recommending Approval:</label>
-        <select id="recommending_approval" name="recommending_approval" class="form-control" required>
-            <option value="">Select Recommender</option>
-            {% for user in approving_users %}
-                <option value="{{ user }}">{{ user }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <button type="submit" class="btn btn-primary">Submit</button>
-</form>
-<a href="{{ url_for('submit_document') }}" class="btn btn-secondary mt-3">Back</a>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Authority Application</title>
+</head>
+<body>
+    <form id="travelAuthorityForm" method="POST" action="{{ url_for('submit_and_print_travel_authority') }}" target="_blank">
+        <div class="form-group">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="position">Position:</label>
+            <input type="text" id="position" name="position" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="purpose">Purpose:</label>
+            <input type="text" id="purpose" name="purpose" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="destination">Destination:</label>
+            <input type="text" id="destination" name="destination" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="start_date">Start Date:</label>
+            <input type="date" id="start_date" name="start_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="end_date">End Date:</label>
+            <input type="date" id="end_date" name="end_date" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="recommending_approval">Recommender:</label>
+            <select id="recommending_approval" name="recommending_approval" class="form-control" required>
+                <option value="">Select Recommender</option>
+                {% for user in approving_users %}
+                    <option value="{{ user }}">{{ user }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="host">Host of Activity:</label>
+            <input type="text" id="host" name="host" class="form-control" required>
+        </div>
+        
+        <!-- Submit and Print Button -->
+        <button type="button" class="btn btn-primary" onclick="handleSubmit()">Submit and Print Travel Authority</button>
+    </form>
+</body>
+</html>
+
+<script>
+    function handleSubmit() {
+        // Submit the form to open the print preview in a new tab
+        const form = document.getElementById('travelAuthorityForm');
+        form.submit();
+
+        // Redirect to the dashboard after form submission
+        setTimeout(function() {
+            window.location.href = "{{ url_for('user_dashboard') }}";
+        }, 500); // Short delay to ensure form submission happens first
+    }
+</script>
 {% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="container mt-5">
+    <h2>Change Position</h2>
+    <form method="POST" action="{{ url_for('change_position') }}">
+        <div class="form-group">
+            <label for="position">Current Position:</label>
+            <input type="text" id="position" name="position" class="form-control" value="{{ current_position }}" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Update Position</button>
+        <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary mt-2">Cancel</a>
+    </form>
+</div>
+
+{% endblock %}

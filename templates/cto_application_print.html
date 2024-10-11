@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CTO Application - Print</title>
+    <style>
+        @media print {
+            .no-print {
+                display: none; /* Hide the print button during printing */
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>CTO Application</h1>
+    <p><strong>Name:</strong> {{ name }}</p>
+    <p><strong>Position:</strong> {{ position }}</p>
+    <p><strong>Days Applied:</strong> {{ days }}</p>
+    <p><strong>Start Date:</strong> {{ start_date }}</p>
+    <p><strong>End Date:</strong> {{ end_date }}</p>
+    <p><strong>Recommending Approval:</strong> {{ recommending_approval }}</p>
+
+    <button class="no-print" onclick="window.print()">Print Application</button>
+    <a class="no-print" href="{{ url_for('user_dashboard') }}">Back to Dashboard</a>
+</body>
+</html>
