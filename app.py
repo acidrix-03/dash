@@ -930,17 +930,21 @@ def recommender_dashboard():
 
 
 LEAVE_TYPE_MAP = {
-    "1": 'Sick Leave',
-    "2": 'Vacation Leave',
-    "3": 'Special Privilege Leave',
+    "1": 'Vacation Leave',
+    "2": 'Mandatory/Forced Leave',
+    "3": 'Sick Leave',
     "4": 'Maternity Leave',
     "5": 'Paternity Leave',
-    "6": 'Solo Parent Leave',
-    "7": 'Study Leave',
-    "8": 'Special Leave Benefits for Women',
-    "9": 'Emergency Leave',  # Example of adding a new leave type
-    # Add more leave types as per your application
-}
+    "6": 'Special Privilege Leave',
+    "7": 'Solo Parent Leave',
+    "8": 'Study Leave',
+    "9": '10-Day VAWC Leave',
+    "10": 'Rehabilitation Privilege',
+    "11": 'Speical Leave for Women',
+    "12": 'Calamity Leave',
+    "13": 'Adoption Leave',
+    "14": 'Monetization'
+ }
 
 @app.route('/recommended_applications')
 def recommended_applications():
