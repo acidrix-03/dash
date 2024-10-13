@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block content %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Application</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .template {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: auto;
+            z-index: -1; /* Set behind the text fields */
+        }
+        .text-field {
+            position: absolute;
+            font-family: Arial, sans-serif;
+        }
+        /* Adjust positions according to where you want the text to appear on the template */
+        .name {
+            top: 150px; /* Adjust the position */
+            left: 120px; /* Adjust the position */
+            font-size: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .position {
+            top: 200px; /* Adjust the position */
+            left: 120px;
+            font-size: 18px;
+        }
+        .office {
+            top: 250px; /* Adjust the position */
+            left: 120px;
+            font-size: 18px;
+        }
+        .salary {
+            top: 300px; /* Adjust the position */
+            left: 120px;
+            font-size: 18px;
+        }
+        .days {
+            top: 350px; /* Adjust the position */
+            left: 120px;
+            font-size: 18px;
+        }
+        .start-date {
+            top: 400px; /* Adjust the position */
+            left: 120px;
+            font-size: 18px;
+        }
+        .end-date {
+            top: 400px; /* Adjust the position */
+            left: 300px; /* Adjust the position */
+            font-size: 18px;
+        }
+        .leave-type {
+            top: 450px; /* Adjust the position */
+            left: 120px;
+            font-size: 18px;
+        }
+        .recommender {
+            top: 500px; /* Adjust the position */
+            left: 120px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="{{ url_for('static', filename='leave_application_template.jpg') }}" alt="Leave Application Template" class="template">
+
+        <div class="text-field name">{{ name }}</div>
+        <div class="text-field position">{{ position }}</div>
+        <div class="text-field office">{{ office }}</div> <!-- Office -->
+        <div class="text-field salary">{{ salary }}</div> <!-- Salary -->
+        <div class="text-field days">{{ days }}</div> <!-- No. of Days Applied -->
+        <div class="text-field start-date">{{ start_date }}</div>
+        <div class="text-field end-date">{{ end_date }}</div>
+        <div class="text-field leave-type">{{ leave_type }}</div>
+        <div class="text-field recommender">{{ recommending_approval }}</div>
+    </div>
+</body>
+</html>
+
+{% endblock %}

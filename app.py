@@ -468,22 +468,26 @@ def import_users_excel():
         flash(f"Error importing users: {e}", 'error')
         return redirect(url_for('admin_dashboard'))
 
-@app.route('/cancel_application/<app_type>/<int:app_id>', methods=['POST'])
+@app.route('/cancel_application/<app_type>/<int:app_id>', methods=['DELETE'])
 def cancel_application(app_type, app_id):
     if 'user_id' not in session:
         return jsonify({'error': 'Access denied'}), 403
-    
-    with sqlite3.connect('documents.db') as conn:
-        if app_type == 'cto':
-            conn.execute('DELETE FROM cto_application WHERE id = ?', (app_id,))
-        elif app_type == 'leave':
-            conn.execute('DELETE FROM leave_application WHERE id = ?', (app_id,))
-        elif app_type == 'travel_authority':
-            conn.execute('DELETE FROM travel_authority WHERE id = ?', (app_id,))
-        conn.commit()
-    
-    flash('Application cancelled successfully', 'success')
-    return redirect(url_for('user_dashboard'))
+
+    try:
+        with sqlite3.connect('documents.db') as conn:
+            if app_type == 'cto':
+                conn.execute('DELETE FROM cto_application WHERE id = ?', (app_id,))
+            elif app_type == 'leave':
+                conn.execute('DELETE FROM leave_application WHERE id = ?', (app_id,))
+            elif app_type == 'travel_authority':
+                conn.execute('DELETE FROM travel_authority WHERE id = ?', (app_id,))
+            conn.commit()
+
+        return jsonify({'success': 'Application cancelled successfully'})
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return jsonify({'error': 'Failed to cancel application'}), 500
+
 
 @app.route('/reject_application/<int:app_id>', methods=['POST'])
 def reject_application(app_id):
@@ -1096,7 +1100,7 @@ def print_travel_authority(travel_id):
         conn.row_factory = sqlite3.Row  # Allows accessing rows as dictionaries
         # Fetch the travel authority data from the database
         travel_authority = conn.execute('''
-            SELECT name, position, purpose, host, start_date, end_date, destination, recommending_approval 
+            SELECT name, position, purpose, host, start_date, end_date, destination, recommending_approval, recommender_position 
             FROM travel_authority 
             WHERE id = ?
         ''', (travel_id,)).fetchone()
@@ -1113,7 +1117,9 @@ def print_travel_authority(travel_id):
                            start_date=travel_authority['start_date'], 
                            end_date=travel_authority['end_date'],
                            destination=travel_authority['destination'],
-                           recommending_approval=travel_authority['recommending_approval'])
+                           recommending_approval=travel_authority['recommending_approval'],
+                           recommender_position=travel_authority['recommender_position'])  # Pass recommender_position
+
 
 
 @app.route('/submit_and_print_travel_authority', methods=['POST'])

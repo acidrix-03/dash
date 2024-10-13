@@ -75,10 +75,16 @@
             font-size: 18px;
         }
         .recommender {
-            top: 1350px;
+            top: 1330px;
             left: 140px;
             font-size: 20px;
             font-weight: bold;
+        }
+        .recommender-position {
+            top: 1360px; /* Adjust this to position it correctly */
+            left: 140px;
+            font-size: 18px; /* Slightly smaller font size */
+            font-weight: normal;
         }
     </style>
 </head>
@@ -95,6 +101,7 @@
         <div class="text-field end-date">{{ end_date }}</div>
         <div class="text-field destination">{{ destination }}</div>
         <div class="text-field recommender">{{ recommending_approval }}</div>
+        <div class="text-field recommender-position">{{ recommender_position }}</div>
     </div>
 </body>
 </html>

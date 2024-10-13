@@ -50,6 +50,15 @@
         .btn-custom:hover {
             background-color: #0056b3;
         }
+        .btn-cancel {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+        }
+        .btn-cancel:hover {
+            background-color: #c82333;
+        }
     </style>
 </head>
 
@@ -95,6 +104,7 @@
                     <div class="card-body">
                         <h4>Applications</h4>
                         <input type="date" id="dateFilter" class="form-control filter-input" placeholder="Filter by Date" style="width: auto;">
+                        <input type="text" id="keywordFilter" class="form-control filter-input" placeholder="Search by keyword" style="width: auto; margin-top: 10px;">
 
                         <!-- CTO Applications Table -->
                         <h5 class="mt-4">CTO Applications</h5>
@@ -107,6 +117,7 @@
                                     <th>Start Date</th>
                                     <th>End Date</th>
                                     <th>Status</th>
+                                    <th>Actions</th> <!-- Added Actions Column -->
                                 </tr>
                             </thead>
                             <tbody>
@@ -128,6 +139,11 @@
                                             Pending
                                         {% endif %}
                                     </td>
+                                    <td>
+                                        {% if application[7] != 'Approved' %}
+                                        <button class="btn btn-danger btn-cancel" data-id="{{ application[0] }}" data-type="cto">Cancel</button>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -145,6 +161,7 @@
                                     <th>End Date</th>
                                     <th>Type of Leave</th>
                                     <th>Status</th>
+                                    <th>Actions</th> <!-- Added Actions Column -->
                                 </tr>
                             </thead>
                             <tbody>
@@ -167,6 +184,11 @@
                                             Pending
                                         {% endif %}
                                     </td>
+                                    <td>
+                                        {% if application[8] != 'Approved' %}
+                                        <button class="btn btn-danger btn-cancel" data-id="{{ application[0] }}" data-type="leave">Cancel</button>
+                                        {% endif %}
+                                </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -184,6 +206,7 @@
                                     <th>End Date</th>
                                     <th>Destination</th>
                                     <th>Status</th>
+                                    <th>Actions</th> <!-- Added Actions Column -->
                                 </tr>
                             </thead>
                             <tbody>
@@ -206,6 +229,11 @@
                                             Pending
                                         {% endif %}
                                     </td>
+                                    <td>
+                                        {% if authority[8] != 'Approved' %}
+                                        <button class="btn btn-danger btn-cancel" data-id="{{ authority[0] }}" data-type="travel_authority">Cancel</button>
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -217,32 +245,43 @@
         </div>
     </div>
 
+    <!-- JavaScript for filtering tables -->
     <script>
         document.getElementById('dateFilter').addEventListener('change', function() {
             filterTable();
         });
 
+        document.getElementById('keywordFilter').addEventListener('input', function() {
+            filterTable();
+        });
+
         function filterTable() {
             let dateFilter = document.getElementById('dateFilter').value;
+            let keywordFilter = document.getElementById('keywordFilter').value.toLowerCase();
 
-            filterSpecificTable('ctoTable', dateFilter);
-            filterSpecificTable('leaveTable', dateFilter);
-            filterSpecificTable('travelTable', dateFilter);
+            filterSpecificTable('ctoTable', dateFilter, keywordFilter);
+            filterSpecificTable('leaveTable', dateFilter, keywordFilter);
+            filterSpecificTable('travelTable', dateFilter, keywordFilter);
         }
 
-        function filterSpecificTable(tableId, dateFilter) {
+        function filterSpecificTable(tableId, dateFilter, keywordFilter) {
             let table = document.getElementById(tableId);
             let tr = table.getElementsByTagName('tr');
 
             for (let i = 1; i < tr.length; i++) {
-                let tdStartDate = tr[i].getElementsByTagName('td')[3];
+                let tdStartDate = tr[i].getElementsByTagName('td')[3]; // Start Date
+                let tdName = tr[i].getElementsByTagName('td')[0]; // Name
+                let tdPosition = tr[i].getElementsByTagName('td')[1]; // Position
 
-                if (tdStartDate) {
+                if (tdStartDate && tdName && tdPosition) {
                     let startDateValue = tdStartDate.textContent;
+                    let nameValue = tdName.textContent.toLowerCase();
+                    let positionValue = tdPosition.textContent.toLowerCase();
 
                     let dateMatch = dateFilter === "" || startDateValue.startsWith(dateFilter);
+                    let keywordMatch = keywordFilter === "" || nameValue.includes(keywordFilter) || positionValue.includes(keywordFilter);
 
-                    if (dateMatch) {
+                    if (dateMatch && keywordMatch) {
                         tr[i].style.display = "";
                     } else {
                         tr[i].style.display = "none";
@@ -250,6 +289,32 @@
                 }
             }
         }
+
+        // JavaScript function to handle cancellation
+        document.querySelectorAll('.btn-cancel').forEach(button => {
+        button.addEventListener('click', function() {
+            let applicationId = this.getAttribute('data-id');
+            let applicationType = this.getAttribute('data-type');
+
+            fetch(`/cancel_application/${applicationType}/${applicationId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            }).then(response => {
+                if (response.ok) {
+                    alert('Application cancelled successfully.');
+                    location.reload(); // Refresh the page to reflect changes
+                } else {
+                    return response.json().then(data => {
+                        alert(`Error cancelling the application: ${data.error}`);
+                    });
+                }
+            }).catch(err => {
+                alert('Network error: ' + err.message);
+            });
+        });
+    });
     </script>
 
 </body>

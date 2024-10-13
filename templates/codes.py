@@ -18,6 +18,12 @@ file_names = [
     r'D:\warm-hollows-62602\templates\user_dashboard.html',
     r'D:\warm-hollows-62602\templates\recommended_head.html',    
     r'D:\warm-hollows-62602\templates\unit_head_dashboard.html',
+    r'D:\warm-hollows-62602\templates\recommended_head.html',   
+    r'D:\warm-hollows-62602\templates\change_password_user.html',     
+    r'D:\warm-hollows-62602\templates\cto_print_template.html',
+    r'D:\warm-hollows-62602\templates\edit_user.html',
+    r'D:\warm-hollows-62602\templates\travel_authority_print_template.html',
+    r'D:\warm-hollows-62602\templates\change_position.html',
 ]
 
 # Open the output file in write mode
