@@ -2,18 +2,19 @@
 {% block content %}
 <h2>Approved Applications</h2>
 
+<!-- CTO Applications -->
 <h3>CTO Applications</h3>
 <input type="text" id="ctoInput" onkeyup="filterTable('ctoTable', 'ctoInput')" placeholder="Search for names..">
 <table class="table table-striped" id="ctoTable">
     <thead>
         <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Days</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Date Approved</th>
+            <th onclick="sortTable('ctoTable', 0)">ID</th>
+            <th onclick="sortTable('ctoTable', 1)">Name</th>
+            <th onclick="sortTable('ctoTable', 2)">Position</th>
+            <th onclick="sortTable('ctoTable', 3)">Days</th>
+            <th onclick="sortTable('ctoTable', 4)">Start Date</th>
+            <th onclick="sortTable('ctoTable', 5)">End Date</th>
+            <th onclick="sortTable('ctoTable', 6)">Date Approved</th>
         </tr>
     </thead>
     <tbody>
@@ -30,51 +31,53 @@
         {% endfor %}
     </tbody>
 </table>
+<div id="ctoPagination"></div>
 
+<!-- Leave Applications -->
 <h3>Leave Applications</h3>
 <input type="text" id="leaveInput" onkeyup="filterTable('leaveTable', 'leaveInput')" placeholder="Search for names..">
 <table class="table table-striped" id="leaveTable">
     <thead>
         <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Days</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <!-- <th>Leave Type</th> Leave Type column -->
-            <th>Date Approved</th>
+            <th onclick="sortTable('leaveTable', 0)">ID</th>
+            <th onclick="sortTable('leaveTable', 1)">Name</th>
+            <th onclick="sortTable('leaveTable', 2)">Position</th>
+            <th onclick="sortTable('leaveTable', 3)">Days</th>
+            <th onclick="sortTable('leaveTable', 4)">Start Date</th>
+            <th onclick="sortTable('leaveTable', 5)">End Date</th>
+            <th onclick="sortTable('leaveTable', 6)">Date Approved</th>
         </tr>
     </thead>
     <tbody>
         {% for app in leave_approved_apps %}
         <tr>
-            <td>{{ app[0] }}</td> <!-- ID -->
-            <td>{{ app[2] }}</td> <!-- Name -->
-            <td>{{ app[3] }}</td> <!-- Position -->
-            <td>{{ app[4] }}</td> <!-- Days -->
-            <td>{{ app[5] }}</td> <!-- Start Date -->
-            <td>{{ app[6] }}</td> <!-- End Date -->
-            <!-- <td>{{ app [7]}}</td> Leave Type -->
-            <td>{{ app[9] }}</td> <!-- Date Approved -->
+            <td>{{ app[0] }}</td>
+            <td>{{ app[2] }}</td>
+            <td>{{ app[3] }}</td>
+            <td>{{ app[4] }}</td>
+            <td>{{ app[5] }}</td>
+            <td>{{ app[6] }}</td>
+            <td>{{ app[9] }}</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
+<div id="leavePagination"></div>
 
+<!-- Travel Authorities -->
 <h3>Travel Authorities</h3>
 <input type="text" id="travelInput" onkeyup="filterTable('travelTable', 'travelInput')" placeholder="Search for names..">
 <table class="table table-striped" id="travelTable">
     <thead>
         <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Destination</th>
-            <th>Purpose</th>
-            <th>Date Approved</th>
+            <th onclick="sortTable('travelTable', 0)">ID</th>
+            <th onclick="sortTable('travelTable', 1)">Name</th>
+            <th onclick="sortTable('travelTable', 2)">Position</th>
+            <th onclick="sortTable('travelTable', 3)">Start Date</th>
+            <th onclick="sortTable('travelTable', 4)">End Date</th>
+            <th onclick="sortTable('travelTable', 5)">Destination</th>
+            <th onclick="sortTable('travelTable', 6)">Purpose</th>
+            <th onclick="sortTable('travelTable', 7)">Date Approved</th>
         </tr>
     </thead>
     <tbody>
@@ -92,8 +95,39 @@
         {% endfor %}
     </tbody>
 </table>
+<div id="travelPagination"></div>
 
+<!-- Pagination and Sorting/Filtering JavaScript -->
 <script>
+const rowsPerPage = 5;
+
+function paginateTable(tableId, paginationId, page = 1) {
+    var table, rows, totalPages, currentPage = page;
+    table = document.getElementById(tableId);
+    rows = table.getElementsByTagName("tr");
+    totalPages = Math.ceil((rows.length - 1) / rowsPerPage); // Exclude header
+
+    // Hide all rows except for the header row
+    for (var i = 1; i < rows.length; i++) {
+        rows[i].style.display = "none";
+    }
+
+    // Show only the rows for the current page
+    var start = (currentPage - 1) * rowsPerPage + 1; // Offset to skip header
+    var end = start + rowsPerPage;
+    for (var i = start; i < end && i < rows.length; i++) {
+        rows[i].style.display = "";
+    }
+
+    // Generate pagination controls
+    var paginationControls = "";
+    for (var i = 1; i <= totalPages; i++) {
+        paginationControls += `<button class="btn btn-sm btn-primary ${i === currentPage ? 'active' : ''}" onclick="paginateTable('${tableId}', '${paginationId}', ${i})">${i}</button> `;
+    }
+
+    document.getElementById(paginationId).innerHTML = paginationControls;
+}
+
 function filterTable(tableId, inputId) {
     var input, filter, table, tr, td, i, j, txtValue;
     input = document.getElementById(inputId);
@@ -116,6 +150,57 @@ function filterTable(tableId, inputId) {
         }
     }
 }
+
+function sortTable(tableId, columnIndex) {
+    var table, rows, switching, i, x, y, shouldSwitch, dir, switchCount = 0;
+    table = document.getElementById(tableId);
+    switching = true;
+    dir = "asc"; // Default sort direction
+
+    while (switching) {
+        switching = false;
+        rows = table.rows;
+
+        // Loop through all table rows (except the first, which is the header)
+        for (i = 1; i < (rows.length - 1); i++) {
+            shouldSwitch = false;
+            x = rows[i].getElementsByTagName("TD")[columnIndex];
+            y = rows[i + 1].getElementsByTagName("TD")[columnIndex];
+
+            // Compare the two elements in the selected column
+            if (dir == "asc") {
+                if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                    shouldSwitch = true;
+                    break;
+                }
+            } else if (dir == "desc") {
+                if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                    shouldSwitch = true;
+                    break;
+                }
+            }
+        }
+
+        if (shouldSwitch) {
+            rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+            switching = true;
+            switchCount++;
+        } else {
+            // If no switching has been done and the direction is "asc", change to "desc" and re-run
+            if (switchCount == 0 && dir == "asc") {
+                dir = "desc";
+                switching = true;
+            }
+        }
+    }
+}
+
+// Initialize Pagination on Page Load
+window.onload = function() {
+    paginateTable('ctoTable', 'ctoPagination');
+    paginateTable('leaveTable', 'leavePagination');
+    paginateTable('travelTable', 'travelPagination');
+};
 </script>
 
 <a href="{{ url_for('approver_dashboard') }}" class="btn btn-primary mb-3">Go back to dashboard</a>

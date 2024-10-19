@@ -7,6 +7,9 @@ from io import BytesIO
 from flask_babel import Babel
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify
 from flask import jsonify
+import openpyxl
+import shutil
+import time
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
@@ -167,6 +170,7 @@ def login():
         if user and check_password_hash(user[3], password):
             session['user_id'] = user[0]
             session['username'] = user[2]
+            session['position'] = user[5]
             session['role'] = user[4]
 
             # Redirect based on user role
@@ -377,13 +381,26 @@ def clear_data():
                 doc_conn.execute('DELETE FROM cto_application')
                 doc_conn.execute('DELETE FROM leave_application')
                 doc_conn.execute('DELETE FROM travel_authority')
-                # Clear recommended and approved applications as well
                 doc_conn.execute('DELETE FROM recommended_applications')
                 doc_conn.execute('DELETE FROM approved_applications')
                 doc_conn.commit()
-            flash('All data has been cleared successfully', 'success')
+            
+            # Clear all generated Excel files
+            output_dir = "path/to/output/directory"  # Update this to your actual output directory path
+            if os.path.exists(output_dir):
+                # Delete all files in the output directory
+                for filename in os.listdir(output_dir):
+                    file_path = os.path.join(output_dir, filename)
+                    try:
+                        if os.path.isfile(file_path):
+                            os.remove(file_path)  # Delete the file
+                    except Exception as e:
+                        print(f"Error deleting file {file_path}: {e}")
+            
+            flash('All data and generated files have been cleared successfully', 'success')
         else:
             flash('Invalid admin password', 'danger')
+    
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/change_position', methods=['GET', 'POST'])
@@ -428,6 +445,7 @@ def export_excel():
     output.seek(0)
     return send_file(output, download_name='admin_data.xlsx', as_attachment=True)
 
+
 @app.route('/export_users_excel')
 def export_users_excel():
     with sqlite3.connect('users.db') as conn:
@@ -470,6 +488,7 @@ def import_users_excel():
 
 @app.route('/cancel_application/<app_type>/<int:app_id>', methods=['DELETE'])
 def cancel_application(app_type, app_id):
+    print(f"Canceling application of type: {app_type}, ID: {app_id}")  # Debug line
     if 'user_id' not in session:
         return jsonify({'error': 'Access denied'}), 403
 
@@ -482,49 +501,32 @@ def cancel_application(app_type, app_id):
             elif app_type == 'travel_authority':
                 conn.execute('DELETE FROM travel_authority WHERE id = ?', (app_id,))
             conn.commit()
-
+            print(f"Application of type {app_type} with ID {app_id} canceled successfully.")  # Debug line
         return jsonify({'success': 'Application cancelled successfully'})
     except Exception as e:
         print(f"Error occurred: {e}")
         return jsonify({'error': 'Failed to cancel application'}), 500
 
 
+
 @app.route('/reject_application/<int:app_id>', methods=['POST'])
 def reject_application(app_id):
-    if 'user_id' not in session:
-        return jsonify({'error': 'Access denied'}), 403
-
-    user_role = session.get('role')
-    if user_role not in ['approver', 'unit_head', 'recommender']:
-        return jsonify({'error': 'Access denied'}), 403
-
     rejection_comment = request.form.get('rejection_comment')
-    application_type = request.form.get('application_type')  # Get the application type from the request
+    application_type = request.form.get('application_type')
+    # Fetch the application using the ID
+    application = Application.query.get(app_id)
+    
+    if application:
+        application.status = 'Rejected'
+        application.rejection_comment = rejection_comment
+        db.session.commit()
+        
+        # Notify the user via their dashboard
+        flash(f'Your application was rejected. Reason: {rejection_comment}', 'warning')
+        
+        return jsonify({'success': True})
+    return jsonify({'success': False, 'error': 'Application not found'})
 
-    with sqlite3.connect('documents.db') as conn:
-        if application_type == 'cto':
-            conn.execute('''
-                UPDATE cto_application 
-                SET approval_status = 'Rejected', rejection_comment = ? 
-                WHERE id = ?
-            ''', (rejection_comment, app_id))
-        elif application_type == 'leave':
-            conn.execute('''
-                UPDATE leave_application 
-                SET approval_status = 'Rejected', rejection_comment = ? 
-                WHERE id = ?
-            ''', (rejection_comment, app_id))
-        elif application_type == 'travel_authority':
-            conn.execute('''
-                UPDATE travel_authority 
-                SET approval_status = 'Rejected', rejection_comment = ? 
-                WHERE id = ?
-            ''', (rejection_comment, app_id))
-
-        # Commit the changes
-        conn.commit()
-
-    return jsonify({'success': True})
 
 
 @app.route('/cto_application', methods=['GET', 'POST'])
@@ -555,141 +557,265 @@ def cto_application():
             conn.row_factory = sqlite3.Row  # Allows access to rows as dictionaries
             cto_application = conn.execute('SELECT * FROM cto_application WHERE user_id = ?', (user_id,)).fetchone()
 
-        # Fetch Unit Head and Recommender usernames for the dropdown
+        # Fetch Unit Heads and Recommenders for the dropdown
         with sqlite3.connect('users.db') as conn:
-            unit_heads = conn.execute('SELECT username FROM users WHERE role = "unit_head"').fetchall()
-            recommenders = conn.execute('SELECT username FROM users WHERE role = "recommender"').fetchall()
+            approving_users = [row[0] for row in conn.execute('SELECT username FROM users WHERE role IN ("unit_head", "recommender")').fetchall()]
 
-        approving_users = [uh[0] for uh in unit_heads] + [rec[0] for rec in recommenders]
-
-        # Pass the existing application (if any) to the template
         return render_template('cto_application.html', approving_users=approving_users, cto_application=cto_application)
 
 
-@app.route('/print_cto_application/<int:cto_id>')
-def print_cto_application(cto_id):
-    with sqlite3.connect('documents.db') as conn:
-        conn.row_factory = sqlite3.Row  # Allows accessing rows as dictionaries
-        # Fetch all required fields from cto_application
-        cto_application = conn.execute('''
-            SELECT name, position, days, start_date, end_date, recommending_approval 
-            FROM cto_application 
-            WHERE id = ?
-        ''', (cto_id,)).fetchone()
-
-    if not cto_application:
-        return "CTO Application not found.", 404
-
-    # Render the print template with the application details
-    return render_template('cto_print_template.html', 
-                           name=cto_application['name'], 
-                           position=cto_application['position'], 
-                           days=cto_application['days'], 
-                           start_date=cto_application['start_date'], 
-                           end_date=cto_application['end_date'],
-                           recommending_approval=cto_application['recommending_approval'])
-
-
-@app.route('/submit_and_print_cto_application', methods=['POST'])
-def submit_and_print_cto_application():
-    user_id = session['user_id']  # Get the logged-in user's ID
-    
+@app.route('/submit_and_print_cto_application_excel', methods=['POST'])
+def submit_and_print_cto_application_excel():
     # Get form data
     name = request.form['name']
     position = request.form['position']
     days = request.form['days']
     start_date = request.form['start_date']
     end_date = request.form['end_date']
-    recommending_approval = request.form['recommending_approval']
-    
+    recommender = request.form['recommending_approval']
+
+    user_id = session['user_id']  # Get the logged-in user's ID
+
     # Insert the new CTO application into the database
     with sqlite3.connect('documents.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
+        conn.execute('''
             INSERT INTO cto_application (name, position, days, start_date, end_date, user_id, recommending_approval)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (name, position, days, start_date, end_date, user_id, recommending_approval))
+        ''', (name, position, days, start_date, end_date, user_id, recommender))
         conn.commit()
 
-        # Get the last inserted ID
-        cto_id = cursor.lastrowid
+    # Fetch recommender's position from the users.db
+    with sqlite3.connect('users.db') as user_conn:
+        recommender_position = user_conn.execute('SELECT position FROM users WHERE username = ?', (recommender,)).fetchone()
+        recommender_position = recommender_position[0] if recommender_position else "Unknown Position"
 
-    # Redirect to the print view with the newly created CTO application
-    return redirect(url_for('print_cto_application', cto_id=cto_id))
+    # Path to the template file in static folder
+    template_path = os.path.join('static', 'cto_application_template.xlsx')
+
+    # Load the workbook and fill in the data
+    wb = openpyxl.load_workbook(template_path)
+    sheet = wb.active
+    sheet['I19'] = name  
+    sheet['I20'] = position  
+    sheet['C11'] = start_date  
+    sheet['E11'] = end_date  
+    sheet['E19'] = recommender  
+    sheet['E20'] = recommender_position  
+
+    # Ensure the 'generated_files' directory exists
+    output_directory = os.path.join('static', 'generated_files')
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Save the file with a unique name (to avoid overwriting)
+    output_filename = f'cto_application_{user_id}_{int(time.time())}.xlsx'
+    output_path = os.path.join(output_directory, output_filename)
+    wb.save(output_path)
+    wb.close()
+
+    flash('CTO Application Submitted Successfully!', 'success')
+
+    # Redirect to the download route with the generated file's name
+    return redirect(url_for('download_cto_application', filename=output_filename))
+
+
+@app.route('/download_cto_application/<filename>', methods=['GET'])
+def download_cto_application(filename):
+    file_path = os.path.join('static', 'generated_files', filename)
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True)
+    else:
+        flash('File not found.', 'danger')
+        return redirect(url_for('user_dashboard'))
+
 
 @app.route('/leave_application', methods=['GET', 'POST'])
 def leave_application():
+    user_id = session['user_id']  # Get the logged-in user's ID
+
     if request.method == 'POST':
+        # Handle form submission
         name = request.form['name']
         position = request.form['position']
-        office = request.form['office']  # Capture office
-        salary = request.form['salary']  # Capture salary
         days = request.form['days']
         start_date = request.form['start_date']
         end_date = request.form['end_date']
-        leave_type = request.form['leave_type']
         recommending_approval = request.form['recommending_approval']
-        user_id = session['user_id']  # Assuming user is logged in
 
-        # Store the data in the database
+        # Insert the new leave application into the database
         with sqlite3.connect('documents.db') as conn:
-            conn.execute('''
-                INSERT INTO leave_application (name, position, office, salary, days, start_date, end_date, leave_type, user_id, recommending_approval)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (name, position, office, salary, days, start_date, end_date, leave_type, user_id, recommending_approval))
+            conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, user_id, recommending_approval)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, user_id, recommending_approval))
             conn.commit()
 
         flash('Leave Application submitted successfully!')
         return redirect(url_for('user_dashboard'))
 
-    # Fetch Unit Heads and Recommenders for the dropdown
-    with sqlite3.connect('users.db') as conn:
-        unit_heads = conn.execute('SELECT username FROM users WHERE role = "unit_head"').fetchall()
-        recommenders = conn.execute('SELECT username FROM users WHERE role = "recommender"').fetchall()
+    else:
+        # Fetch user details (office and salary) for this user from users.db
+        with sqlite3.connect('users.db') as conn:
+            conn.row_factory = sqlite3.Row  # Allows access to rows as dictionaries
+            user_details = conn.execute('SELECT office, salary FROM users WHERE id = ?', (user_id,)).fetchone()
 
-    approving_users = [uh[0] for uh in unit_heads] + [rec[0] for rec in recommenders]
+        # Check if user_details is None (user not found)
+        if user_details is None:
+            flash('User details not found.', 'danger')
+            return redirect(url_for('user_dashboard'))
 
-    # Fetch user details for the sidebar
-    user_details, stats = get_user_info_and_stats(session['user_id'])
+        # Fetch Recommenders for the dropdown
+        with sqlite3.connect('users.db') as conn:
+            approving_users = [row[0] for row in conn.execute('SELECT username FROM users WHERE role IN ("unit_head", "recommender")').fetchall()]
 
-    # Pass approving_users, user_details, and stats to the template
-    return render_template('leave_application.html', approving_users=approving_users, user_details=user_details, stats=stats)
+        return render_template('leave_application.html', approving_users=approving_users, user_details=user_details)
+
+@app.route('/submit_and_print_leave_application_excel', methods=['POST'])
+def submit_and_print_leave_application_excel():
+    # Get form data
+    name = request.form['name']
+    position = request.form['position']
+    office = request.form['office']  
+    salary = request.form['salary']  
+    days = request.form['days']
+    start_date = request.form['start_date']
+    end_date = request.form['end_date']
+    leave_type = request.form['leave_type']
+    recommender = request.form['recommending_approval']
+
+    user_id = session['user_id']  # Get the logged-in user's ID
+
+    # Insert the new Leave application into the database
+    with sqlite3.connect('documents.db') as conn:
+        conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
+                     (name, position, days, start_date, end_date, leave_type, user_id, recommender))
+        conn.commit()
+
+    # Fetch recommender's position from the users.db
+    with sqlite3.connect('users.db') as user_conn:
+        recommender_position = user_conn.execute('SELECT position FROM users WHERE username = ?', (recommender,)).fetchone()
+        recommender_position = recommender_position[0] if recommender_position else "Unknown Position"
+
+    # Path to the template file in static folder
+    template_path = os.path.join('static', 'leave_application_template.xlsx')
+
+    # Load the workbook and fill in the data
+    wb = openpyxl.load_workbook(template_path)
+    sheet = wb.active
+    sheet['E5'] = name  
+    sheet['E7'] = position
+    sheet['C5'] = office
+    sheet['I7'] = salary
+    sheet['C45'] = days
+    sheet['C48'] = start_date
+    sheet['D48'] = end_date
+
+    # Ensure the 'generated_files' directory exists
+    output_directory = os.path.join('static', 'generated_files')
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Save the file with a unique name (to avoid overwriting)
+    output_filename = f'leave_application_{user_id}_{int(time.time())}.xlsx'
+    output_path = os.path.join(output_directory, output_filename)
+    wb.save(output_path)
+    wb.close()
+
+    flash('Leave Application Submitted Successfully!', 'success')
+
+    # Redirect to the download route with the generated file's name
+    return redirect(url_for('download_leave_application', filename=output_filename))
+
+@app.route('/download_leave_application/<filename>', methods=['GET'])
+def download_leave_application(filename):
+    file_path = os.path.join('static', 'generated_files', filename)
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True)
+    else:
+        flash('File not found.', 'danger')
+        return redirect(url_for('user_dashboard'))
 
 
 @app.route('/travel_authority', methods=['GET', 'POST'])
 def travel_authority():
+    user_id = session['user_id']  # Get the logged-in user's ID
+    
     if request.method == 'POST':
-        name = request.form['name']
-        position = request.form['position']
-        purpose = request.form['purpose']
-        host = request.form['host']
-        start_date = request.form['start_date']
-        end_date = request.form['end_date']
-        destination = request.form['destination']
-        recommending_approval = request.form['recommending_approval']  # Capture selected recommender
-        user_id = session['user_id']  # Logged-in user
+        # Handle form submission (not required here as it redirects to another route)
+        return redirect(url_for('submit_and_print_travel_authority_excel'))
+    
+    else:
+        # Fetch recommenders for dropdown
+        with sqlite3.connect('users.db') as conn:
+            approving_users = [row[0] for row in conn.execute('SELECT username FROM users WHERE role IN ("unit_head", "recommender")').fetchall()]
+        return render_template('travel_authority.html', approving_users=approving_users)
 
-        with sqlite3.connect('documents.db') as conn:
-            conn.execute('''
-                INSERT INTO travel_authority 
-                (name, position, purpose, host, start_date, end_date, destination, user_id, recommending_approval)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (name, position, purpose, host, start_date, end_date, destination, user_id, recommending_approval))
-            conn.commit()
+@app.route('/submit_and_print_travel_authority_excel', methods=['POST'])
+def submit_and_print_travel_authority_excel():
+    # Get form data
+    name = request.form['name']
+    position = request.form['position']
+    purpose = request.form['purpose']
+    host = request.form['host']
+    destination = request.form['destination']
+    start_date = request.form['start_date']
+    end_date = request.form['end_date']
+    recommending_approval = request.form['recommending_approval']
 
-        flash('Travel Authority submitted successfully!')
+    user_id = session['user_id']  # Get the logged-in user's ID
+
+    # Insert the new Travel Authority into the database
+    with sqlite3.connect('documents.db') as conn:
+        conn.execute('''INSERT INTO travel_authority 
+                        (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                     (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval))
+        conn.commit()
+
+    # Fetch recommender's position from the users.db
+    with sqlite3.connect('users.db') as user_conn:
+        recommender_position = user_conn.execute('SELECT position FROM users WHERE username = ?', 
+                                                 (recommending_approval,)).fetchone()
+        recommender_position = recommender_position[0] if recommender_position else "Unknown Position"
+
+    # Path to the template file in static folder
+    template_path = os.path.join('static', 'travel_authority_template.xlsx')
+
+    # Load the workbook and fill in the data
+    wb = openpyxl.load_workbook(template_path)
+    sheet = wb.active
+    sheet['B4'] = name
+    sheet['A13'] = name
+    sheet['B5'] = position
+    sheet['B7'] = purpose
+    sheet['B8'] = host
+    sheet['B9'] = start_date
+    sheet['D9'] = end_date
+    sheet['B10'] = destination
+
+    # Ensure the 'generated_files' directory exists
+    output_directory = os.path.join('static', 'generated_files')
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    # Save the file with a unique name (to avoid overwriting)
+    output_filename = f'travel_authority_{user_id}_{int(time.time())}.xlsx'
+    output_path = os.path.join(output_directory, output_filename)
+    wb.save(output_path)
+    wb.close()
+
+    flash('Travel Authority Submitted and Excel Generated Successfully!', 'success')
+
+    # Redirect to the download route with the generated file's name
+    return redirect(url_for('download_travel_application', filename=output_filename))
+
+@app.route('/download_travel_application/<filename>', methods=['GET'])
+def download_travel_application(filename):
+    file_path = os.path.join('static', 'generated_files', filename)
+    if os.path.exists(file_path):
+        return send_file(file_path, as_attachment=True)
+    else:
+        flash('File not found.', 'danger')
         return redirect(url_for('user_dashboard'))
-
-    # Fetch recommenders and unit heads for the dropdown
-    with sqlite3.connect('users.db') as conn:
-        recommenders = conn.execute('SELECT username FROM users WHERE role = "recommender"').fetchall()
-        unit_heads = conn.execute('SELECT username FROM users WHERE role = "unit_head"').fetchall()
-
-    # Combine the results into a single list
-    approving_users = [rec[0] for rec in recommenders] + [uh[0] for uh in unit_heads]
-
-    return render_template('travel_authority.html', approving_users=approving_users)
-
 
 @app.route('/change_role/<int:user_id>', methods=['POST'])
 def change_role(user_id):
@@ -900,6 +1026,30 @@ def recommend_approval(app_id):
         conn.commit()
     return jsonify({'success': True})
 
+@app.route('/dashboard')
+def dashboard():
+    cto_applications = get_all_cto_applications()  # Fetch all CTO applications
+    leave_applications = get_all_leave_applications()  # Fetch all leave applications
+    travel_authorities = get_all_travel_authorities()  # Fetch all travel authorities
+    
+
+    cto_pending = len([app for app in cto_applications if not app.is_approved])
+    leave_pending = len([app for app in leave_applications if not app.is_approved])
+    travel_pending = len([app for app in travel_authorities if not app.is_approved])
+
+
+
+    return render_template('dashboard.html', 
+                           cto_count=len(cto_applications),
+                           leave_count=len(leave_applications),
+                           travel_count=len(travel_authorities),
+                           cto_pending=cto_pending,
+                           leave_pending=leave_pending,
+                           travel_pending=travel_pending,
+                           cto_applications=cto_applications,
+                           leave_applications=leave_applications,
+                           travel_authorities=travel_authorities)
+
 
 @app.route('/recommender_dashboard')
 def recommender_dashboard():
@@ -914,15 +1064,15 @@ def recommender_dashboard():
         cto_applications = conn.execute('''SELECT * FROM cto_application 
                                            WHERE recommending_approval = ? AND recommending_approval IS NOT NULL''', 
                                         (recommender_username,)).fetchall()
-
+        print(f"CTO Applications: {cto_applications}")  
         leave_applications = conn.execute('''SELECT * FROM leave_application 
                                              WHERE recommending_approval = ? AND recommending_approval IS NOT NULL''', 
                                           (recommender_username,)).fetchall()
-
+        print(f"Leave Applications: {leave_applications}")
         travel_authorities = conn.execute('''SELECT * FROM travel_authority 
                                              WHERE recommending_approval = ? AND recommending_approval IS NOT NULL''', 
                                           (recommender_username,)).fetchall()
-
+        print(f"Travel Authorities: {travel_authorities}") 
     return render_template('recommender_dashboard.html', 
                            cto_applications=cto_applications, 
                            leave_applications=leave_applications, 
@@ -1096,64 +1246,11 @@ def edit_user(user_id):
 
     return render_template('edit_user.html', user=user)
 
-
-
-@app.route('/print_travel_authority/<int:travel_id>')
-def print_travel_authority(travel_id):
-    with sqlite3.connect('documents.db') as conn:
-        conn.row_factory = sqlite3.Row  # Allows accessing rows as dictionaries
-        # Fetch the travel authority data from the database
-        travel_authority = conn.execute('''
-            SELECT name, position, purpose, host, start_date, end_date, destination, recommending_approval, recommender_position 
-            FROM travel_authority 
-            WHERE id = ?
-        ''', (travel_id,)).fetchone()
-
-    if not travel_authority:
-        return "Travel Authority not found.", 404
-
-    # Render the template and pass the application data
-    return render_template('travel_authority_print_template.html',
-                           name=travel_authority['name'], 
-                           position=travel_authority['position'], 
-                           purpose=travel_authority['purpose'], 
-                           host=travel_authority['host'],  # Add host here
-                           start_date=travel_authority['start_date'], 
-                           end_date=travel_authority['end_date'],
-                           destination=travel_authority['destination'],
-                           recommending_approval=travel_authority['recommending_approval'],
-                           recommender_position=travel_authority['recommender_position'])  # Pass recommender_position
-
-
-
-@app.route('/submit_and_print_travel_authority', methods=['POST'])
-def submit_and_print_travel_authority():
-    user_id = session['user_id']  # Get the logged-in user's ID
-    
-    # Get form data
-    name = request.form['name']
-    position = request.form['position']
-    purpose = request.form['purpose']
-    host = request.form['host']  # Fetch the 'host' field
-    destination = request.form['destination']
-    start_date = request.form['start_date']
-    end_date = request.form['end_date']
-    recommending_approval = request.form['recommending_approval']
-    
-    # Insert the new Travel Authority application into the database
-    with sqlite3.connect('documents.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('''
-            INSERT INTO travel_authority (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval))
-        conn.commit()
-
-        # Get the last inserted ID
-        travel_id = cursor.lastrowid
-
-    # Redirect to the print view with the newly created Travel Authority application
-    return redirect(url_for('print_travel_authority', travel_id=travel_id))
+import os
+import openpyxl
+from openpyxl.drawing.image import Image
+from flask import send_file
+import sqlite3
 
 def add_office_and_salary_columns():
     with sqlite3.connect('users.db') as conn:
@@ -1173,14 +1270,17 @@ def add_office_and_salary_columns():
 
 @app.route('/update_user_info', methods=['POST'])
 def update_user_info():
+    # Check if the user is logged in
     if 'user_id' not in session:
         flash('Please log in first')
         return redirect(url_for('index'))
     
     user_id = session['user_id']
+    
+    # Capture the updated information from the form
     office = request.form['office']
     salary = request.form['salary']
-    position = request.form['position']  # Capture the updated position
+    position = request.form['position']
 
     # Update the user's office, salary, and position in the database
     with sqlite3.connect('users.db') as conn:
@@ -1188,12 +1288,14 @@ def update_user_info():
                      (office, salary, position, user_id))
         conn.commit()
 
-    # Optionally, update the session variables if you are using them
+    # Optionally, update the session variables to reflect the changes
     session['position'] = position
+    session['office'] = office  # Add this line to keep the session updated
+    session['salary'] = salary   # Add this line to keep the session updated
 
     flash('User information updated successfully!')
 
-    # Fetch updated user details
+    # Fetch updated user details and statistics
     user_details, stats = get_user_info_and_stats(user_id)
 
     # Fetch applications from documents.db
@@ -1214,6 +1316,35 @@ def update_user_info():
                            cto_applications=cto_applications, 
                            leave_applications=leave_applications, 
                            travel_authorities=travel_authorities)
+
+from flask import send_file, abort
+
+@app.route('/download_file/<file_type>/<int:application_id>')
+def download_file(file_type, application_id):
+    # Map the file_type to the file location
+    file_path = get_file_path(file_type, application_id)  # Implement this function to fetch file path based on type and ID
+    
+    try:
+        return send_file(file_path, as_attachment=True)
+    except FileNotFoundError:
+        abort(404, description="File not found")
+
+@app.route('/download_application/<int:app_id>', methods=['GET'])
+def download_application(app_id):
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    
+    with sqlite3.connect('documents.db') as conn:
+        application = conn.execute('SELECT * FROM cto_application WHERE id = ? AND approval_status = "Approved"', (app_id,)).fetchone()
+        if application:
+            # Logic to generate the downloadable document (e.g., PDF or a file)
+            file_path = generate_cto_pdf(application)  # You need to implement this function
+            return send_file(file_path, as_attachment=True)
+        else:
+            flash('Application is not approved or does not exist')
+            return redirect(url_for('user_dashboard'))
+
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))  # Get the PORT from environment, default to 5000

@@ -8,7 +8,7 @@
     <title>CTO Application</title>
 </head>
 <body>
-    <form id="ctoForm" method="POST" action="{{ url_for('submit_and_print_cto_application') }}" target="_blank">
+    <form id="ctoForm" method="POST" action="{{ url_for('submit_and_print_cto_application_excel') }}">
         <div class="form-group">
             <label for="name">Name:</label>
             <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" required>
@@ -39,23 +39,17 @@
             </select>
         </div>
         
-        <!-- Submit and Print Button -->
         <a href="{{ url_for('user_dashboard') }}" class="btn btn-primary mt-1">Back to My Dashboard</a>
-        <button type="button" class="btn btn-primary" onclick="handleSubmit()">Submit and Print CTO Application</button>
+        <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Excel</button>
     </form>
+
+    <script>
+        function handleFormSubmit() {
+            setTimeout(function() {
+                window.location.href = "{{ url_for('user_dashboard') }}";
+            }, 1000); 
+        }
+    </script>
 </body>
 </html>
-
-<script>
-    function handleSubmit() {
-        // Submit the form to open the print preview in a new tab
-        const form = document.getElementById('ctoForm');
-        form.submit();
-
-        // Redirect to the dashboard after form submission
-        setTimeout(function() {
-            window.location.href = "{{ url_for('user_dashboard') }}";
-        }, 500); // Short delay to ensure form submission happens first
-    }
-</script>
 {% endblock %}

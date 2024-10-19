@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document Submission App</title>
+    <title>FormHub</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -11,31 +11,35 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: linear-gradient(to right, #4facfe, #00f2fe);
-            color: #fff;
+            background: angle-gradient(to right, #ffffff, #707070); 
+            color: #fff; /* White text */
         }
         .navbar {
             border-bottom: 2px solid #dee2e6;
-            background: rgba(255, 255, 255, 0.9);
+            background: #000; /* Black navbar */
         }
         .container {
             max-width: 500px;
             margin-top: 50px;
-            background: rgba(255, 255, 255, 0.9);
+            background: #000; /* Black container */
             padding: 30px;
             border-radius: 10px;
         }
         .form-group label {
             font-weight: 600;
-            color: #000;
+            color: #fff; /* White labels */
+        }
+        .form-control:focus {
+            border-color: #ff7f50; /* Orange border on focus */
+            box-shadow: 0 0 5px rgba(255, 127, 80, 0.5); /* Soft orange glow */
         }
         .btn-primary {
-            background-color: #007bff;
-            border-color: #007bff;
+            background-color: #ff7f50; /* Orange buttons */
+            border-color: #ff7f50;
         }
         .btn-primary:hover {
-            background-color: #0056b3;
-            border-color: #004085;
+            background-color: #e06e39; /* Darker orange on hover */
+            border-color: #e06e39;
         }
         .btn-secondary {
             background-color: #6c757d;
@@ -49,11 +53,27 @@
             max-width: 150px;
             margin-bottom: 20px;
         }
+        .app-description {
+            margin-top: 20px;
+            font-size: 1rem;
+            color: #fff; /* White description */
+        }
+        .credits {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: #fff; /* White credits */
+        }
+        footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #fff; /* White footer */
+        }
     </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">Schools Division of Calbayog City: Tracker</a>
+        <a class="navbar-brand" href="#">FormHub</a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -72,6 +92,8 @@
             <img src="{{ url_for('static', filename='logo.png') }}" alt="Division Logo" class="mb-4">
         </div>
         <h2 class="text-center">Login</h2>
+        <!-- <p class="app-description text-center">Welcome to FormHub, your go-to platform for efficient document submissions.</p> -->
+        <!-- <p class="credits text-center">Created by: Gary H. Ballon, ITO 1 & Drixel Idol R. Ortega, ADAS III</p> -->
         <form method="POST" action="{{ url_for('login') }}">
             <div class="form-group">
                 <label for="username">Employee ID:</label>
@@ -85,6 +107,9 @@
         </form>
         <a href="{{ url_for('register') }}" class="btn btn-secondary btn-block mt-3">Register</a>
     </div>
+    <footer>
+        <p>&copy; 2024 Schools Division of Calbayog City. All rights reserved.</p>
+    </footer>
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>

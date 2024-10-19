@@ -1,10 +1,14 @@
 {% extends "base.html" %}
-
 {% block content %}
-
-<div class="container">
-    <h2 class="mb-4">Leave Application</h2>
-    <form method="POST" action="{{ url_for('leave_application') }}">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leave Application</title>
+</head>
+<body>
+    <form id="leaveForm" method="POST" action="{{ url_for('submit_and_print_leave_application_excel') }}">
         <div class="form-group">
             <label for="name">Name:</label>
             <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" required>
@@ -13,19 +17,19 @@
             <label for="position">Position:</label>
             <input type="text" id="position" name="position" value="{{ session['position'] }}" class="form-control" required>
         </div>
-        
-        <!-- New Office Field -->
+
+        <!-- Add Office Field -->
         <div class="form-group">
             <label for="office">Office:</label>
             <input type="text" id="office" name="office" value="{{ user_details[0] }}" class="form-control" required>
         </div>
-        
-        <!-- New Salary Field -->
+
+        <!-- Add Salary Field -->
         <div class="form-group">
             <label for="salary">Salary:</label>
             <input type="number" id="salary" name="salary" value="{{ user_details[1] }}" class="form-control" required>
         </div>
-        
+
         <div class="form-group">
             <label for="days">No. of Days applied:</label>
             <input type="number" id="days" name="days" class="form-control" required>
@@ -39,7 +43,7 @@
             <input type="date" id="end_date" name="end_date" class="form-control" required>
         </div>
         <div class="form-group">
-            <label for="leave_type">Type of Leave to be Availed:</label>
+            <label for="leave_type">Leave Type:</label>
             <select id="leave_type" name="leave_type" class="form-control" required>
                 <option value="">Select Leave Type</option>
                 <option value="Vacation Leave">Vacation Leave</option>
@@ -47,11 +51,11 @@
                 <option value="Sick Leave">Sick Leave</option>
                 <option value="Maternity Leave">Maternity Leave</option>
                 <option value="Paternity Leave">Paternity Leave</option>
-                <option value="Special Privelege Leave">Special Privelege Leave</option>
+                <option value="Special Privilege Leave">Special Privilege Leave</option>
                 <option value="Solo Parent Leave">Solo Parent Leave</option>
                 <option value="Study Leave">Study Leave</option>
                 <option value="10-Day VAWC Leave">10-Day VAWC Leave</option>
-                <option value="Rehabilitation Privelege">Rehabilitation Privilege</option>
+                <option value="Rehabilitation Privilege">Rehabilitation Privilege</option>
                 <option value="Special Leave for Women">Special Leave for Women</option>
                 <option value="Calamity Leave">Calamity Leave</option>
                 <option value="Adoption Leave">Adoption Leave</option>
@@ -59,7 +63,7 @@
             </select>
         </div>
         <div class="form-group">
-            <label for="recommending_approval">Recommending Approval:</label>
+            <label for="recommending_approval">Recommender:</label>
             <select id="recommending_approval" name="recommending_approval" class="form-control" required>
                 <option value="">Select Recommender</option>
                 {% for user in approving_users %}
@@ -67,8 +71,19 @@
                 {% endfor %}
             </select>
         </div>
-        <button type="submit" class="btn btn-primary">Submit</button>
+        
+        <!-- Add buttons -->
+        <a href="{{ url_for('user_dashboard') }}" class="btn btn-primary mt-1">Back to My Dashboard</a>
+        <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Excel</button>
     </form>
-</div>
 
+    <script>
+        function handleFormSubmit() {
+            setTimeout(function() {
+                window.location.href = "{{ url_for('user_dashboard') }}";
+            }, 1000);
+        }
+    </script>
+</body>
+</html>
 {% endblock %}

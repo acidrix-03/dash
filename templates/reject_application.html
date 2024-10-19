@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Reject {{ application.app_type }} Application</h2>  <!-- Corrected to show the right type -->
+    <p><strong>Name:</strong> {{ application.name }}</p>    <!-- Corrected to show the user name -->
+    <p><strong>Applying for:</strong> {{ application.app_type }}</p>
+
+    <form method="POST" action="{{ url_for('submit_rejection', app_id=application.app_id, app_type=application.app_type) }}">
+        <div class="form-group">
+            <label for="rejection_reason">Reason for Rejection:</label>
+            <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="4" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-danger">Confirm Rejection</button>
+        <a href="{{ url_for('approver_dashboard') }}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

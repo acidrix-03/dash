@@ -1,8 +1,235 @@
-CTO Applications Table:
-in the "Status" columns, it only shows "Recommended". It should show "Approved" when the approver has already approved the application.
+{% extends "base.html" %}
 
-Leave Applications Table:
-show "Pending" if the application has not yet been Recommended, "Recommended", then "Approved" when appropriate.
+{% block content %}
 
-Travel Authorities Table:
-Add "Status" Column with entry the same as the other tables.
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Approver Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar {
+            margin-bottom: 20px;
+        }
+        .table {
+            margin-top: 20px;
+            border-radius: 0.5rem;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .table th {
+            background-color: #007bff;
+            color: white;
+        }
+        .table tbody tr:hover {
+            background-color: #e9ecef;
+        }
+        .btn-custom {
+            background-color: #007bff;
+            color: white;
+            border-radius: 0.5rem;
+        }
+        .btn-custom:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h2 class="mb-4">Approver Dashboard</h2>
+
+    <!-- CTO Applications Table -->
+    <h4>CTO Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in cto_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>{{ application[7] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success approve-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Approve
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="cto">
+                        Reject -->
+                    </button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Leave Applications Table -->
+    <h4>Leave Applications</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Days</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Leave Type</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in leave_applications %}
+            <tr id="row-{{ application[0] }}">
+                <td>{{ application[1] }}</td>
+                <td>{{ application[2] }}</td>
+                <td>{{ application[3] }}</td>
+                <td>{{ application[4] }}</td>
+                <td>{{ application[5] }}</td>
+                <td>{{ application[7] }}</td>
+                <td>{{ application[8] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success approve-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Approve
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ application[0] }}" 
+                            data-type="leave">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Travel Authorities Table -->
+    <h4>Travel Authorities</h4>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Position</th>
+                <th>Purpose</th>
+                <th>Destination</th>
+                <th>Start Date</th>
+                <th>End Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for authority in travel_authorities %}
+            <tr id="row-{{ authority[0] }}">
+                <td>{{ authority[1] }}</td>
+                <td>{{ authority[2] }}</td>
+                <td>{{ authority[3] }}</td>
+                <td>{{ authority[7] }}</td>
+                <td>{{ authority[5] }}</td>
+                <td>{{ authority[6] }}</td>
+                <td>{{ authority[9] }}</td> <!-- Display the status -->
+                <td>
+                    <button class="btn btn-success approve-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Approve
+                    </button>
+                    <!-- <button class="btn btn-danger reject-btn" 
+                            data-id="{{ authority[0] }}" 
+                            data-type="travel_authority">
+                        Reject
+                    </button> -->
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script>
+    $(document).ready(function() {
+        // AJAX for approving applications
+        $('.approve-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var applicationType = button.data('type');  // Get application type
+
+            $.ajax({
+                type: 'POST',
+                url: '/approve_application/' + appId,
+                data: { application_type: applicationType },
+                success: function(response) {
+                    if (response.success) {
+                        button.text('Approved').attr('disabled', true).removeClass('btn-success').addClass('btn-secondary');
+                        alert('Application successfully approved!');
+                    } else {
+                        alert('Error: ' + response.error);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                }
+            });
+        });
+
+        // AJAX for rejecting applications
+        $('.reject-btn').on('click', function() {
+            var button = $(this);
+            var appId = button.data('id');  // Get application ID
+            var rejectionComment = prompt("Please enter a reason for rejection:");
+
+            if (rejectionComment) {
+                $.ajax({
+                    type: 'POST',
+                    url: '/reject_application/' + appId,
+                    data: { rejection_comment: rejectionComment },
+                    success: function(response) {
+                        if (response.success) {
+                            alert("Application rejected with comment: " + rejectionComment);
+                            button.closest('tr').remove();  // Remove the row from the table
+                        } else {
+                            alert('Error: ' + response.error);
+                        }
+                    },
+                    error: function() {
+                        alert('An error occurred. Please try again.');
+                    }
+                });
+            }
+        });
+    });
+</script>
+
+</body>
+<a href="{{ url_for('approved_applications') }}" class="btn btn-primary mb-3">See Approved Applications</a>
+</html>
+
+{% endblock %}
+
+I want to add a reject button in the approver dashboard. once clicked, the Approver must give his reason for rejecting the application. the reason will be saved in the database and will be displayed in the user dashboard table under the column "Rejection Reason". Can you generate the most simple and easiest way to do this?

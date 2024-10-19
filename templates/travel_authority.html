@@ -8,7 +8,7 @@
     <title>Travel Authority Application</title>
 </head>
 <body>
-    <form id="travelAuthorityForm" method="POST" action="{{ url_for('submit_and_print_travel_authority') }}" target="_blank">
+    <form id="travelAuthorityForm" method="POST" action="{{ url_for('submit_and_print_travel_authority_excel') }}">
         <div class="form-group">
             <label for="name">Name:</label>
             <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" required>
@@ -46,24 +46,19 @@
             <label for="host">Host of Activity:</label>
             <input type="text" id="host" name="host" class="form-control" required>
         </div>
-        
-        <!-- Submit and Print Button -->
+
+        <!-- Submit and Download Excel Button -->
         <a href="{{ url_for('user_dashboard') }}" class="btn btn-primary mt-1">Back to My Dashboard</a>
-        <button type="button" class="btn btn-primary" onclick="handleSubmit()">Submit and Print Travel Authority</button>
+        <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Travel Authority</button>
     </form>
+
+    <script>
+        function handleFormSubmit() {
+            setTimeout(function() {
+                window.location.href = "{{ url_for('user_dashboard') }}";
+            }, 1000);
+        }
+    </script>
 </body>
 </html>
-
-<script>
-    function handleSubmit() {
-        // Submit the form to open the print preview in a new tab
-        const form = document.getElementById('travelAuthorityForm');
-        form.submit();
-
-        // Redirect to the dashboard after form submission
-        setTimeout(function() {
-            window.location.href = "{{ url_for('user_dashboard') }}";
-        }, 500); // Short delay to ensure form submission happens first
-    }
-</script>
 {% endblock %}

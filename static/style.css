@@ -1,27 +1,56 @@
 body {
     background-color: #f8f9fa; /* Light gray background */
 }
+
 .navbar {
     margin-bottom: 20px; /* Spacing below navbar */
 }
+
 .table {
     margin-top: 20px; /* Spacing above table */
     border-radius: 0.5rem; /* Rounded corners */
     overflow: hidden; /* Prevents overflow from rounded corners */
     box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Shadow effect */
 }
+
 .table th {
     background-color: #007bff; /* Bootstrap primary color */
     color: white; /* White text for header */
 }
+
 .table tbody tr:hover {
     background-color: #e9ecef; /* Light gray hover effect */
 }
+
 .btn-custom {
     background-color: #007bff; /* Primary button color */
     color: white; /* White text */
     border-radius: 0.5rem; /* Rounded corners */
 }
+
 .btn-custom:hover {
     background-color: #0056b3; /* Darker shade on hover */
+}
+
+.container {
+    width: 100%;  /* Ensure container spans the full width */
+    max-width: 1000px; /* Set a max-width if needed */
+    margin: auto; /* Center container */
+}
+
+.table {
+    table-layout: auto;  /* Allow the table to adjust based on content */
+    width: 100%;  /* Force table to stay within container's width */
+    min-width: 800px;  /* Set a minimum width for the table to trigger scrolling */
+}
+
+.table th, .table td {
+    white-space: nowrap;  /* Prevent text wrapping */
+    overflow: visible;  /* Allow content to expand without truncating */
+    text-overflow: clip; /* Make sure no ellipsis is used */
+}
+
+.table-responsive {
+    overflow-x: auto;  /* Enable horizontal scroll when table content overflows */
+    max-width: 100%;  /* Ensure the table stays within the container's width */
 }
