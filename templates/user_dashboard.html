@@ -85,6 +85,17 @@
         .btn-custom:hover {
             background-color: #138496;
         }
+        @media (max-width: 768px) {
+        .topbar {
+            flex-direction: column; /* Stack items vertically */
+            align-items: flex-start; /* Align items to the start */
+        }
+
+        .topbar .btn-group {
+            width: 100%; /* Make buttons take full width */
+            justify-content: space-between; /* Space buttons evenly */
+        }
+    }
     </style> 
 </head>
 
