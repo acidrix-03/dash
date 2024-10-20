@@ -10,6 +10,7 @@ from flask import jsonify
 import openpyxl
 import shutil
 import time
+import glob
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
@@ -486,8 +487,8 @@ def import_users_excel():
         flash(f"Error importing users: {e}", 'error')
         return redirect(url_for('admin_dashboard'))
 
-@app.route('/cancel_application/<app_type>/<int:app_id>', methods=['DELETE'])
-def cancel_application(app_type, app_id):
+@app.route('/cancel_application/<int:app_id>/<string:app_type>', methods=['POST'])
+def cancel_application(app_id, app_type):
     print(f"Canceling application of type: {app_type}, ID: {app_id}")  # Debug line
     if 'user_id' not in session:
         return jsonify({'error': 'Access denied'}), 403
@@ -498,7 +499,7 @@ def cancel_application(app_type, app_id):
                 conn.execute('DELETE FROM cto_application WHERE id = ?', (app_id,))
             elif app_type == 'leave':
                 conn.execute('DELETE FROM leave_application WHERE id = ?', (app_id,))
-            elif app_type == 'travel_authority':
+            elif app_type == 'travel':
                 conn.execute('DELETE FROM travel_authority WHERE id = ?', (app_id,))
             conn.commit()
             print(f"Application of type {app_type} with ID {app_id} canceled successfully.")  # Debug line
@@ -578,10 +579,12 @@ def submit_and_print_cto_application_excel():
 
     # Insert the new CTO application into the database
     with sqlite3.connect('documents.db') as conn:
-        conn.execute('''
+        cursor = conn.cursor()
+        cursor.execute('''
             INSERT INTO cto_application (name, position, days, start_date, end_date, user_id, recommending_approval)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ''', (name, position, days, start_date, end_date, user_id, recommender))
+        app_id = cursor.lastrowid  # Get the last inserted ID
         conn.commit()
 
     # Fetch recommender's position from the users.db
@@ -608,7 +611,7 @@ def submit_and_print_cto_application_excel():
         os.makedirs(output_directory)
 
     # Save the file with a unique name (to avoid overwriting)
-    output_filename = f'cto_application_{user_id}_{int(time.time())}.xlsx'
+    output_filename = f'cto_application_{app_id}_{int(time.time())}.xlsx'
     output_path = os.path.join(output_directory, output_filename)
     wb.save(output_path)
     wb.close()
@@ -617,6 +620,7 @@ def submit_and_print_cto_application_excel():
 
     # Redirect to the download route with the generated file's name
     return redirect(url_for('download_cto_application', filename=output_filename))
+
 
 
 @app.route('/download_cto_application/<filename>', methods=['GET'])
@@ -685,9 +689,11 @@ def submit_and_print_leave_application_excel():
 
     # Insert the new Leave application into the database
     with sqlite3.connect('documents.db') as conn:
-        conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
-                     (name, position, days, start_date, end_date, leave_type, user_id, recommender))
+        cursor = conn.cursor()
+        cursor.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, leave_type, user_id, recommending_approval)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', 
+                       (name, position, days, start_date, end_date, leave_type, user_id, recommender))
+        app_id = cursor.lastrowid  # Get the last inserted ID
         conn.commit()
 
     # Fetch recommender's position from the users.db
@@ -715,7 +721,7 @@ def submit_and_print_leave_application_excel():
         os.makedirs(output_directory)
 
     # Save the file with a unique name (to avoid overwriting)
-    output_filename = f'leave_application_{user_id}_{int(time.time())}.xlsx'
+    output_filename = f'leave_application_{app_id}_{int(time.time())}.xlsx'
     output_path = os.path.join(output_directory, output_filename)
     wb.save(output_path)
     wb.close()
@@ -724,6 +730,7 @@ def submit_and_print_leave_application_excel():
 
     # Redirect to the download route with the generated file's name
     return redirect(url_for('download_leave_application', filename=output_filename))
+
 
 @app.route('/download_leave_application/<filename>', methods=['GET'])
 def download_leave_application(filename):
@@ -765,10 +772,12 @@ def submit_and_print_travel_authority_excel():
 
     # Insert the new Travel Authority into the database
     with sqlite3.connect('documents.db') as conn:
-        conn.execute('''INSERT INTO travel_authority 
-                        (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
-                     (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval))
+        cursor = conn.cursor()
+        cursor.execute('''INSERT INTO travel_authority 
+                          (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval)
+                          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                       (name, position, purpose, host, destination, start_date, end_date, user_id, recommending_approval))
+        app_id = cursor.lastrowid  # Get the last inserted ID
         conn.commit()
 
     # Fetch recommender's position from the users.db
@@ -798,7 +807,7 @@ def submit_and_print_travel_authority_excel():
         os.makedirs(output_directory)
 
     # Save the file with a unique name (to avoid overwriting)
-    output_filename = f'travel_authority_{user_id}_{int(time.time())}.xlsx'
+    output_filename = f'travel_authority_{app_id}_{int(time.time())}.xlsx'
     output_path = os.path.join(output_directory, output_filename)
     wb.save(output_path)
     wb.close()
@@ -807,6 +816,8 @@ def submit_and_print_travel_authority_excel():
 
     # Redirect to the download route with the generated file's name
     return redirect(url_for('download_travel_application', filename=output_filename))
+
+
 
 @app.route('/download_travel_application/<filename>', methods=['GET'])
 def download_travel_application(filename):
@@ -1317,33 +1328,28 @@ def update_user_info():
                            leave_applications=leave_applications, 
                            travel_authorities=travel_authorities)
 
-from flask import send_file, abort
-
-@app.route('/download_file/<file_type>/<int:application_id>')
-def download_file(file_type, application_id):
-    # Map the file_type to the file location
-    file_path = get_file_path(file_type, application_id)  # Implement this function to fetch file path based on type and ID
-    
-    try:
-        return send_file(file_path, as_attachment=True)
-    except FileNotFoundError:
-        abort(404, description="File not found")
-
-@app.route('/download_application/<int:app_id>', methods=['GET'])
-def download_application(app_id):
+@app.route('/download_application/<string:app_type>/<int:app_id>', methods=['GET'])
+def download_application(app_type, app_id):
     if 'user_id' not in session:
         flash('Please log in first')
         return redirect(url_for('index'))
-    
-    with sqlite3.connect('documents.db') as conn:
-        application = conn.execute('SELECT * FROM cto_application WHERE id = ? AND approval_status = "Approved"', (app_id,)).fetchone()
-        if application:
-            # Logic to generate the downloadable document (e.g., PDF or a file)
-            file_path = generate_cto_pdf(application)  # You need to implement this function
-            return send_file(file_path, as_attachment=True)
-        else:
-            flash('Application is not approved or does not exist')
-            return redirect(url_for('user_dashboard'))
+    base_dir = os.path.join('static', 'generated_files')
+    base_dir = os.path.normpath(base_dir)
+    if app_type == 'cto':
+        file_pattern = os.path.join(base_dir, f'cto_application_{app_id}_*.xlsx')
+    elif app_type == 'leave':
+        file_pattern = os.path.join(base_dir, f'leave_application_{app_id}_*.xlsx')
+    elif app_type == 'travel':
+        file_pattern = os.path.join(base_dir, f'travel_authority_{app_id}_*.xlsx')
+    else:
+        flash('Invalid application type')
+        return redirect(url_for('user_dashboard'))
+    matching_files = glob.glob(file_pattern)
+    if matching_files:
+        return send_file(matching_files[0], as_attachment=True)
+    else:
+        flash('Application file not found')
+        return redirect(url_for('user_dashboard'))
 
 
 if __name__ == '__main__':

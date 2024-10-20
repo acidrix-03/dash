@@ -245,7 +245,6 @@
                                 <th>Type of Leave</th>
                                 <th>Status</th>
                                 <th>Actions</th>
-                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -274,11 +273,6 @@
                                         data-type="leave">Cancel</button>
                                     {% endif %}
                                 </td>
-                                <td>
-                                    <a href="{{ url_for('download_application', app_type='leave', app_id=application[0]) }}" class="btn btn-info btn-sm">
-                                        <i class="fas fa-save"></i>
-                                    </a>
-                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -299,7 +293,6 @@
                                 <th>End Date</th>
                                 <th>Status</th>
                                 <th>Actions</th>
-                                <th></th>
                             </tr>
                         </thead>
                         <tbody>
@@ -327,12 +320,7 @@
                                     <button class="btn btn-danger btn-sm btn-cancel" data-id="{{ application[0] }}"
                                         data-type="travel">Cancel</button>
                                     {% endif %}
-                                </td>         
-                                <td>
-                                    <a href="{{ url_for('download_application', app_type='travel', app_id=application[0]) }}" class="btn btn-info btn-sm">
-                                        <i class="fas fa-save"></i>
-                                    </a>
-                                </td>                              
+                                </td>                                       
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -381,7 +369,7 @@
                 });
                 return count;
             }
-  
+    
             // Update the summary counts for Pending, Recommended, and Approved
             document.getElementById("pendingCount").textContent = countApplicationsByStatus("Pending");
             document.getElementById("recommendedCount").textContent = countApplicationsByStatus("Recommended");

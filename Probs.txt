@@ -1,235 +1,301 @@
 {% extends "base.html" %}
-
 {% block content %}
 
-<!DOCTYPE html>
-<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Approver Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet"> <!-- Font Awesome for icons -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <style>
         body {
-            background-color: #f8f9fa;
+            display: flex;
+            height: 100vh;
+            background-color: #1e1e2f; /* Dark background */
+            color: #d1d1e0; /* Light text for better contrast */
+            font-family: 'Roboto', sans-serif; /* Clean, modern font */
         }
+
         .navbar {
-            margin-bottom: 20px;
+            width: 100%;
+            position: fixed;
+            top: 0;
+            z-index: 1000;
+            background-color: #2d2d44; /* Darker navbar */
+            border-bottom: 1px solid #444;
         }
-        .table {
-            margin-top: 20px;
-            border-radius: 0.5rem;
-            overflow: hidden;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+
+        .sidebar {
+            background: #29293d;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.3);
+            height: calc(100vh - 56px); 
+            position: fixed; 
+            top: 56px;
+            left: 0;
+            width: 250px;
+            transition: all 0.3s ease;
+            overflow-y: auto;
         }
-        .table th {
-            background-color: #007bff;
+
+        .sidebar h3 {
+            color: #a6a6d2; /* Softer, techy color for headings */
+            font-weight: bold;
+        }
+
+        .sidebar a {
+            margin-bottom: 10px;
+        }
+
+        .btn {
+            border-radius: 8px;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #333a56;
+            color: #ffffff;
+        }
+
+        .content {
+            margin-left: 250px;
+            margin-top: 56px;
+            padding: 20px;
+            flex-grow: 1;
+            transition: margin-left 0.3s ease;
+            background-color: #1e1e2f;
+        }
+
+        .toggle-sidebar-btn {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1001;
+            background-color: #4e4e73;
             color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 50%;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
         }
-        .table tbody tr:hover {
-            background-color: #e9ecef;
+
+        .card {
+            background-color: #2d2d44;
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-align: center;
+            padding: 20px;
+            color: #d1d1e0;
         }
-        .btn-custom {
-            background-color: #007bff;
-            color: white;
-            border-radius: 0.5rem;
+
+        .card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
         }
-        .btn-custom:hover {
-            background-color: #0056b3;
+
+        .card-icon {
+            font-size: 3rem;
+            color: #4caf50; /* Bright accent color for icons */
+        }
+
+        .card h5 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #a6a6d2; /* Subtle tech tone for headings */
+        }
+
+        .card p {
+            font-size: 1.7rem;
+            font-weight: 600;
+        }
+
+        .modal-content {
+            background-color: #2d2d44;
+            color: #d1d1e0;
+        }
+
+        .modal-header, .modal-footer {
+            border-color: #444;
+        }
+
+        .custom-file-label {
+            background-color: #333a56;
+            color: #d1d1e0;
+        }
+
+        .custom-file-input:focus ~ .custom-file-label {
+            background-color: #454a63;
+        }
+
+        .form-control {
+            background-color: #2d2d44;
+            border-color: #444;
+            color: #d1d1e0;
+        }
+
+        .form-control:focus {
+            background-color: #333a56;
+            border-color: #5c67a3;
+        }
+
+        .btn-danger {
+            background-color: #ff5c5c;
         }
     </style>
 </head>
 
 <body>
+     <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+        <h3>Actions</h3>
+        <a href="{{ url_for('view_users') }}" class="btn btn-primary btn-block">
+            <i class="fas fa-users"></i> <span class="btn-text">View Users</span>
+        </a>
+        <a href="{{ url_for('export_users_excel') }}" class="btn btn-success btn-block">
+            <i class="fas fa-file-excel"></i> <span class="btn-text">Export to Excel</span>
+        </a>
+        <a href="{{ url_for('approved_applications') }}" class="btn btn-info btn-block">
+            <i class="fas fa-check"></i> <span class="btn-text">Approved Applications</span>
+        </a>
+        <form method="POST" action="{{ url_for('import_users_excel') }}" enctype="multipart/form-data">
+            <div class="custom-file mb-2">
+                <input type="file" class="custom-file-input" name="file" accept=".xlsx" required>
+                <label class="custom-file-label" for="file">Choose Excel file</label>
+            </div>
+            <button type="submit" class="btn btn-warning btn-block">Import Users</button>
+        </form>
+        <a href="{{ url_for('submit_document') }}" class="btn btn-primary btn-block">
+            <i class="fas fa-file-upload"></i> <span class="btn-text">Submit Application</span>
+        </a>
+        <a href="{{ url_for('user_dashboard') }}" class="btn btn-info btn-block">
+            <i class="fas fa-user"></i> <span class="btn-text">User Dashboard</span>
+        </a>
+        <button type="button" class="btn btn-danger btn-block" data-toggle="modal" data-target="#confirmDeleteModal">Clear All Data</button>
+    </div>
 
-<div class="container">
-    <h2 class="mb-4">Approver Dashboard</h2>
+    <!-- Content Area -->
+    <div class="content" id="content">
+        <div class="container mt-5">
+            <h2 class="text-center">Admin Dashboard</h2>
 
-    <!-- CTO Applications Table -->
-    <h4>CTO Applications</h4>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Position</th>
-                <th>Days</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for application in cto_applications %}
-            <tr id="row-{{ application[0] }}">
-                <td>{{ application[1] }}</td>
-                <td>{{ application[2] }}</td>
-                <td>{{ application[3] }}</td>
-                <td>{{ application[4] }}</td>
-                <td>{{ application[5] }}</td>
-                <td>{{ application[7] }}</td> <!-- Display the status -->
-                <td>
-                    <button class="btn btn-success approve-btn" 
-                            data-id="{{ application[0] }}" 
-                            data-type="cto">
-                        Approve
+            <!-- Application Counts -->
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <i class="fas fa-file-alt card-icon"></i>
+                        <h5>Total CTO Applications</h5>
+                        <p>{{ total_cto }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <i class="fas fa-calendar-alt card-icon"></i>
+                        <h5>Total Leave Applications</h5>
+                        <p>{{ total_leave }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <i class="fas fa-plane-departure card-icon"></i>
+                        <h5>Total Travel Authorities</h5>
+                        <p>{{ total_travel }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending Applications -->
+            <h3 class="mt-4">Pending Applications</h3>
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <i class="fas fa-hourglass-half card-icon"></i>
+                        <h5>Pending CTO Applications</h5>
+                        <p>{{ pending_cto }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <i class="fas fa-hourglass-half card-icon"></i>
+                        <h5>Pending Leave Applications</h5>
+                        <p>{{ pending_leave }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <i class="fas fa-hourglass-half card-icon"></i>
+                        <h5>Pending Travel Authorities</h5>
+                        <p>{{ pending_travel }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Approved Applications -->
+            <h3 class="mt-4">Approved Applications</h3>
+            <div class="row">
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <i class="fas fa-check card-icon"></i>
+                        <h5>Approved CTO Applications</h5>
+                        <p>{{ approved_cto }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <i class="fas fa-check card-icon"></i>
+                        <h5>Approved Leave Applications</h5>
+                        <p>{{ approved_leave }}</p>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <i class="fas fa-check card-icon"></i>
+                        <h5>Approved Travel Authorities</h5>
+                        <p>{{ approved_travel }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div class="modal fade" id="confirmDeleteModal" tabindex="-1" role="dialog" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmDeleteModalLabel">Confirm Data Deletion</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
                     </button>
-                    <!-- <button class="btn btn-danger reject-btn" 
-                            data-id="{{ application[0] }}" 
-                            data-type="cto">
-                        Reject -->
-                    </button>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to clear all user data? This action cannot be undone.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <a href="{{ url_for('clear_data') }}" class="btn btn-danger">Delete</a>
+                </div>
+            </div>
+        </div>
+    </div>
 
-    <!-- Leave Applications Table -->
-    <h4>Leave Applications</h4>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Position</th>
-                <th>Days</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Leave Type</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for application in leave_applications %}
-            <tr id="row-{{ application[0] }}">
-                <td>{{ application[1] }}</td>
-                <td>{{ application[2] }}</td>
-                <td>{{ application[3] }}</td>
-                <td>{{ application[4] }}</td>
-                <td>{{ application[5] }}</td>
-                <td>{{ application[7] }}</td>
-                <td>{{ application[8] }}</td> <!-- Display the status -->
-                <td>
-                    <button class="btn btn-success approve-btn" 
-                            data-id="{{ application[0] }}" 
-                            data-type="leave">
-                        Approve
-                    </button>
-                    <!-- <button class="btn btn-danger reject-btn" 
-                            data-id="{{ application[0] }}" 
-                            data-type="leave">
-                        Reject
-                    </button> -->
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <!-- Toggle Sidebar Button -->
+    <button class="toggle-sidebar-btn" onclick="toggleSidebar()">
+        <i class="fas fa-bars"></i>
+    </button>
 
-    <!-- Travel Authorities Table -->
-    <h4>Travel Authorities</h4>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Position</th>
-                <th>Purpose</th>
-                <th>Destination</th>
-                <th>Start Date</th>
-                <th>End Date</th>
-                <th>Status</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for authority in travel_authorities %}
-            <tr id="row-{{ authority[0] }}">
-                <td>{{ authority[1] }}</td>
-                <td>{{ authority[2] }}</td>
-                <td>{{ authority[3] }}</td>
-                <td>{{ authority[7] }}</td>
-                <td>{{ authority[5] }}</td>
-                <td>{{ authority[6] }}</td>
-                <td>{{ authority[9] }}</td> <!-- Display the status -->
-                <td>
-                    <button class="btn btn-success approve-btn" 
-                            data-id="{{ authority[0] }}" 
-                            data-type="travel_authority">
-                        Approve
-                    </button>
-                    <!-- <button class="btn btn-danger reject-btn" 
-                            data-id="{{ authority[0] }}" 
-                            data-type="travel_authority">
-                        Reject
-                    </button> -->
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-
-</div>
-
-<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-<script>
-    $(document).ready(function() {
-        // AJAX for approving applications
-        $('.approve-btn').on('click', function() {
-            var button = $(this);
-            var appId = button.data('id');  // Get application ID
-            var applicationType = button.data('type');  // Get application type
-
-            $.ajax({
-                type: 'POST',
-                url: '/approve_application/' + appId,
-                data: { application_type: applicationType },
-                success: function(response) {
-                    if (response.success) {
-                        button.text('Approved').attr('disabled', true).removeClass('btn-success').addClass('btn-secondary');
-                        alert('Application successfully approved!');
-                    } else {
-                        alert('Error: ' + response.error);
-                    }
-                },
-                error: function() {
-                    alert('An error occurred. Please try again.');
-                }
-            });
-        });
-
-        // AJAX for rejecting applications
-        $('.reject-btn').on('click', function() {
-            var button = $(this);
-            var appId = button.data('id');  // Get application ID
-            var rejectionComment = prompt("Please enter a reason for rejection:");
-
-            if (rejectionComment) {
-                $.ajax({
-                    type: 'POST',
-                    url: '/reject_application/' + appId,
-                    data: { rejection_comment: rejectionComment },
-                    success: function(response) {
-                        if (response.success) {
-                            alert("Application rejected with comment: " + rejectionComment);
-                            button.closest('tr').remove();  // Remove the row from the table
-                        } else {
-                            alert('Error: ' + response.error);
-                        }
-                    },
-                    error: function() {
-                        alert('An error occurred. Please try again.');
-                    }
-                });
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const content = document.getElementById('content');
+            sidebar.classList.toggle('active');
+            if (sidebar.classList.contains('active')) {
+                content.style.marginLeft = '0';
+            } else {
+                content.style.marginLeft = '250px';
             }
-        });
-    });
-</script>
-
+        }
+    </script>
 </body>
-<a href="{{ url_for('approved_applications') }}" class="btn btn-primary mb-3">See Approved Applications</a>
-</html>
-
 {% endblock %}
 
-I want to add a reject button in the approver dashboard. once clicked, the Approver must give his reason for rejecting the application. the reason will be saved in the database and will be displayed in the user dashboard table under the column "Rejection Reason". Can you generate the most simple and easiest way to do this?
+
+generate updated code with the following:

@@ -10,6 +10,7 @@ from flask import jsonify
 import openpyxl
 import shutil
 import time
+import glob
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
@@ -486,8 +487,8 @@ def import_users_excel():
         flash(f"Error importing users: {e}", 'error')
         return redirect(url_for('admin_dashboard'))
 
-@app.route('/cancel_application/<app_type>/<int:app_id>', methods=['DELETE'])
-def cancel_application(app_type, app_id):
+@app.route('/cancel_application/<int:app_id>/<string:app_type>', methods=['POST'])
+def cancel_application(app_id, app_type):
     print(f"Canceling application of type: {app_type}, ID: {app_id}")  # Debug line
     if 'user_id' not in session:
         return jsonify({'error': 'Access denied'}), 403
@@ -498,7 +499,7 @@ def cancel_application(app_type, app_id):
                 conn.execute('DELETE FROM cto_application WHERE id = ?', (app_id,))
             elif app_type == 'leave':
                 conn.execute('DELETE FROM leave_application WHERE id = ?', (app_id,))
-            elif app_type == 'travel_authority':
+            elif app_type == 'travel':
                 conn.execute('DELETE FROM travel_authority WHERE id = ?', (app_id,))
             conn.commit()
             print(f"Application of type {app_type} with ID {app_id} canceled successfully.")  # Debug line
@@ -1329,22 +1330,49 @@ def download_file(file_type, application_id):
     except FileNotFoundError:
         abort(404, description="File not found")
 
-@app.route('/download_application/<int:app_id>', methods=['GET'])
-def download_application(app_id):
+import os
+import glob
+
+import os
+
+@app.route('/download_application/<string:app_type>/<int:app_id>', methods=['GET'])
+def download_application(app_type, app_id):
     if 'user_id' not in session:
         flash('Please log in first')
         return redirect(url_for('index'))
-    
-    with sqlite3.connect('documents.db') as conn:
-        application = conn.execute('SELECT * FROM cto_application WHERE id = ? AND approval_status = "Approved"', (app_id,)).fetchone()
-        if application:
-            # Logic to generate the downloadable document (e.g., PDF or a file)
-            file_path = generate_cto_pdf(application)  # You need to implement this function
-            return send_file(file_path, as_attachment=True)
-        else:
-            flash('Application is not approved or does not exist')
-            return redirect(url_for('user_dashboard'))
 
+    # Base directory where files are stored
+    base_dir = os.path.join('static', 'generated_files')
+
+    # Normalize the base directory path
+    base_dir = os.path.normpath(base_dir)
+
+    # DEBUG: Print all files in the directory to see what exists
+    all_files = os.listdir(base_dir)
+    print(f"Files in {base_dir}: {all_files}")
+
+    # Define file pattern to search for (using glob to handle timestamped file names)
+    if app_type == 'cto':
+        file_pattern = os.path.join(base_dir, f'cto_application_{app_id}_*.xlsx')
+    elif app_type == 'leave':
+        file_pattern = os.path.join(base_dir, f'leave_application_{app_id}_*.xlsx')
+    elif app_type == 'travel':
+        file_pattern = os.path.join(base_dir, f'travel_authority_{app_id}_*.xlsx')
+    else:
+        flash('Invalid application type')
+        return redirect(url_for('user_dashboard'))
+
+    # Use glob to find the matching file
+    matching_files = glob.glob(file_pattern)
+
+    print(f"Looking for files with pattern: {file_pattern}")
+    print(f"Found matching files: {matching_files}")
+
+    if matching_files:
+        return send_file(matching_files[0], as_attachment=True)
+    else:
+        flash('Application file not found')
+        return redirect(url_for('user_dashboard'))
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))  # Get the PORT from environment, default to 5000

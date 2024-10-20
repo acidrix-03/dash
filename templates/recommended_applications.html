@@ -1,97 +1,111 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Recommended Applications</h2>
 
-<h3>CTO Applications</h3>
-<input type="text" id="ctoFilterInput" onkeyup="filterTable('ctoTable', 'ctoFilterInput')" placeholder="Search for names..">
-<table id="ctoTable" class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Days</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Date Recommended</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for app in cto_recommended_apps %}
-        <tr>
-            <td>{{ app[0] }}</td>
-            <td>{{ app[1] }}</td>
-            <td>{{ app[2] }}</td>
-            <td>{{ app[3] }}</td>
-            <td>{{ app[4] }}</td>
-            <td>{{ app[5] }}</td>
-            <td>{{ app[6] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Recommended Applications</h2>
 
-<h3>Leave Applications</h3>
-<input type="text" id="leaveFilterInput" onkeyup="filterTable('leaveTable', 'leaveFilterInput')" placeholder="Search for names..">
-<table id="leaveTable" class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Days</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <!-- <th>Leave Type</th> -->
-            <th>Date Recommended</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for app in leave_recommended_apps %}
-        <tr>
-            <td>{{ app[0] }}</td>
-            <td>{{ app[1] }}</td>
-            <td>{{ app[2] }}</td>
-            <td>{{ app[3] }}</td>
-            <td>{{ app[4] }}</td>
-            <td>{{ app[5] }}</td>
-            <!-- <td>{{ app[6] }}</td> -->
-            <td>{{ app[7] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <!-- CTO Applications Section -->
+    <div class="application-section mb-4">
+        <h3>CTO Applications</h3>
+        <input type="text" id="ctoFilterInput" onkeyup="filterTable('ctoTable', 'ctoFilterInput')" placeholder="Search for names.." class="form-control mb-3">
+        <table id="ctoTable" class="table table-striped table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Date Recommended</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in cto_recommended_apps %}
+                <tr>
+                    <td>{{ app[0] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[4] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[6] }}</td>
+                    <td>{{ app[7] }}</td>
+                    <td>{{ app[11] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-<h3>Travel Authorities</h3>
-<input type="text" id="travelFilterInput" onkeyup="filterTable('travelTable', 'travelFilterInput')" placeholder="Search for names..">
-<table id="travelTable" class="table table-striped">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Position</th>
-            <th>Start Date</th>
-            <th>End Date</th>
-            <th>Destination</th>
-            <th>Purpose</th>
-            <th>Date Recommended</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for app in travel_recommended_apps %}
-        <tr>
-            <td>{{ app[1] }}</td>
-            <td>{{ app[3] }}</td>
-            <td>{{ app[4] }}</td>
-            <td>{{ app[7] }}</td>
-            <td>{{ app[8] }}</td>
-            <td>{{ app[9] }}</td>
-            <td>{{ app[5] }}</td>
-            <td>{{ app[11] }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    <!-- Leave Applications Section -->
+    <div class="application-section mb-4">
+        <h3>Leave Applications</h3>
+        <input type="text" id="leaveFilterInput" onkeyup="filterTable('leaveTable', 'leaveFilterInput')" placeholder="Search for names.." class="form-control mb-3">
+        <table id="leaveTable" class="table table-striped table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Days</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Date Recommended</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in leave_recommended_apps %}
+                <tr>
+                    <td>{{ app[0] }}</td>
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[2] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[4] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[7] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Travel Authorities Section -->
+    <div class="application-section mb-4">
+        <h3>Travel Authorities</h3>
+        <input type="text" id="travelFilterInput" onkeyup="filterTable('travelTable', 'travelFilterInput')" placeholder="Search for names.." class="form-control mb-3">
+        <table id="travelTable" class="table table-striped table-bordered">
+            <thead class="thead-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Position</th>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Destination</th>
+                    <th>Purpose</th>
+                    <th>Date Recommended</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for app in travel_recommended_apps %}
+                <tr>
+                    <td>{{ app[1] }}</td>
+                    <td>{{ app[3] }}</td>
+                    <td>{{ app[4] }}</td>
+                    <td>{{ app[7] }}</td>
+                    <td>{{ app[8] }}</td>
+                    <td>{{ app[9] }}</td>
+                    <td>{{ app[5] }}</td>
+                    <td>{{ app[11] }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="{{ url_for('recommender_dashboard') }}" class="btn btn-secondary mb-3">Go back to Dashboard</a>
+    </div>
+</div>
 
 <script>
 function filterTable(tableId, inputId) {
@@ -118,6 +132,29 @@ function filterTable(tableId, inputId) {
 }
 </script>
 
-<a href="{{ url_for('recommender_dashboard') }}" class="btn btn-secondary mb-3">Go back to Dashboard</a>
+<style>
+body {
+    background-color: #f8f9fa;
+}
+.application-section {
+    background-color: #ffffff;
+    border-radius: 0.5rem;
+    padding: 20px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+.table th {
+    background-color: #007bff;
+    color: white;
+}
+.table tbody tr:hover {
+    background-color: #e9ecef;
+}
+.btn-secondary {
+    border-radius: 0.5rem;
+}
+.btn-secondary:hover {
+    background-color: #6c757d;
+}
+</style>
 
 {% endblock %}
