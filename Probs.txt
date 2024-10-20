@@ -1,4 +1,4 @@
 Next steps:
 
-Aging: generated files 3 months upon submission
-Notifications: 
+Aging: deleted generated files 3 months upon submission
+
