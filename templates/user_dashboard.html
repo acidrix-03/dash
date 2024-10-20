@@ -93,15 +93,55 @@
         }
 
         @media (max-width: 768px) {
-            .topbar {
-                flex-direction: column;
-                align-items: flex-start;
-            }
+        .container {
+            padding: 10px;
+        }
 
-            .topbar .btn-group {
-                width: 100%;
-                justify-content: space-between;
-            }
+        .sidebar {
+            display: none; /* Hide sidebar on smaller screens */
+        }
+
+        .content {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .table {
+            font-size: 12px;
+        }
+
+        .topbar {
+            padding: 10px;
+        }
+        }
+
+    /* Styles for screens smaller than 480px */
+    @media (max-width: 480px) {
+        .table {
+            font-size: 10px;
+        }
+
+        .navbar {
+            flex-direction: column;
+        }
+
+        .topbar {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .topbar .user-info {
+            font-size: 14px;
+        }
+
+        .card {
+            margin-bottom: 10px;
+        }
+
+        .table th, .table td {
+            padding: 8px;
+        }
         }
     </style>
 </head>
@@ -130,13 +170,12 @@
                 <div class="form-group">
                     <label for="salary">Salary: </label>
                     <input type="number" id="salary" name="salary" value="{{ user_details[1] }}"
-                        class="form-control mx-2" required>
+                        class="form-control mx-3" required>
                 </div>
             </form>
         </div>
-
         <div class="btn-group">
-            <button type="submit" class="btn btn-primary">Update Info</button>
+            <button type="submit" class="btn btn-danger">Update Info</button>
             <a href="{{ url_for('submit_document') }}" class="btn btn-custom">Submit Application</a>
             <a href="{{ url_for('document_tracker') }}" class="btn btn-custom">Track Documents</a>
             <a href="{{ url_for('change_password_user') }}" class="btn btn-warning">Change Password</a>

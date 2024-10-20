@@ -817,8 +817,6 @@ def submit_and_print_travel_authority_excel():
     # Redirect to the download route with the generated file's name
     return redirect(url_for('download_travel_application', filename=output_filename))
 
-
-
 @app.route('/download_travel_application/<filename>', methods=['GET'])
 def download_travel_application(filename):
     file_path = os.path.join('static', 'generated_files', filename)
