@@ -11,13 +11,102 @@
     <title>User Dashboard</title>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script> <!-- jQuery for AJAX -->
+
+
     <style>
+        /* General Styling */
         body {
             background-color: #ffffff;
             color: #000000;
         }
+        
+        /* Sidebar Styling */
+        #sidebar {
+            width: 25%; /* Adjust as needed */
+            background-color: #f4f4f4;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            height: 100vh; /* Full viewport height */
+            border-right: 1px solid #ddd;
+        }
+        .tab-label-container {
+        display: flex;
+        align-items: center;
+          }
 
-        /* Topbar styling */
+        @keyframes flash {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+        }
+
+        .badge-danger {
+            animation: flash 1s infinite;
+        }
+        /* Chatbox Styling */
+        #chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            max-height: calc(100vh - 20px); /* Adjusts for padding */
+            border: 1px solid #ccc;
+            background: #fff;
+        }
+    
+        #chat-header {
+            background: #0078d7;
+            color: #fff;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+    
+        #chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+    
+        #chat-input {
+            display: flex;
+            border-top: 1px solid #ccc;
+            padding: 10px;
+        }
+    
+        #messageInput {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+        }
+    
+        .chat-message {
+            margin: 5px 0;
+        }
+    
+        .timestamp {
+            font-size: 0.8em;
+            color: #888;
+        }
+    
+        /* Button Styling */
+        button {
+            padding: 8px;
+            background: #0078d7;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+        }
+    
+        .btn-custom {
+            background-color: #17a2b8;
+            color: white;
+        }
+    
+        .btn-custom:hover {
+            background-color: #138496;
+        }
+    
+        /* Topbar Styling */
         .topbar {
             background-color: #343a40;
             color: white;
@@ -28,40 +117,43 @@
             align-items: center;
             margin-bottom: 20px;
         }
-
-        /* Aligning the form */
+    
         .topbar .form-inline {
             display: flex;
             flex-wrap: wrap;
             gap: 15px;
             align-items: center;
         }
-
-        .topbar .form-inline .form-group {
+    
+        .topbar .form-group {
             margin-bottom: 0;
         }
-
-        .topbar .form-inline input {
+    
+        .topbar input {
             width: auto;
             min-width: 150px;
         }
-
-        /* Button alignment */
+    
         .topbar .btn-group {
             display: flex;
             gap: 10px;
         }
-
-        /* Tab navigation */
-        .nav-tabs {
-            margin-bottom: 20px;
+    
+        /* Tooltip Styling */
+        .tooltip-inner {
+            text-align: left;
+            white-space: normal; /* Text wrapping */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+            font-size: 0.85em;
         }
-
-        /* Table styling */
+    
+        /* Table Styling */
         .table-container {
             width: 100%;
         }
-
+    
         .table {
             width: 100%;
             margin-top: 20px;
@@ -71,83 +163,114 @@
             overflow: hidden;
             table-layout: auto;
         }
-
+    
         .table thead th {
             background-color: #6c757d;
             color: white;
             text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 1;
         }
-
+    
         .table tbody td {
             text-align: center;
             vertical-align: middle;
-        }
-
-        .btn-custom {
-            background-color: #17a2b8;
-            color: white;
-        }
-
-        .btn-custom:hover {
-            background-color: #138496;
-        }
-
-        @media (max-width: 768px) {
-        .container {
-            padding: 10px;
-        }
-
-        .sidebar {
-            display: none; /* Hide sidebar on smaller screens */
-        }
-
-        .content {
-            width: 100%;
-            margin: 0;
-            padding: 0;
-        }
-
-        .table {
-            font-size: 12px;
-        }
-
-        .topbar {
-            padding: 10px;
-        }
-        }
-
-    /* Styles for screens smaller than 480px */
-    @media (max-width: 480px) {
-        .table {
-            font-size: 10px;
-        }
-
-        .navbar {
-            flex-direction: column;
-        }
-
-        .topbar {
-            flex-direction: column;
-            align-items: flex-start;
-        }
-
-        .topbar .user-info {
-            font-size: 14px;
-        }
-
-        .card {
-            margin-bottom: 10px;
-        }
-
-        .table th, .table td {
+            word-wrap: break-word;
+            white-space: normal;
             padding: 8px;
         }
+    
+        .table th.wrap, .table td.wrap {
+            max-width: 100px; /* Adjust the width as needed */
+            word-wrap: break-word;
+            white-space: normal;
         }
+    
+        /* Forwarding History Styling */
+        .forwarding-history {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            margin-left: 20px; /* Left indent */
+            text-align: left;
+        }
+    
+        .forwarding-history:nth-child(odd) {
+            background-color: #e9ecef;
+        }
+    
+        .forwarding-history:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+    
+        /* Tab Navigation Styling */
+        .nav-tabs {
+            margin-bottom: 20px;
+        }
+    
+        /* Responsive Styling */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+    
+            .sidebar {
+                display: none; /* Hide sidebar on smaller screens */
+            }
+    
+            .content {
+                width: 100%;
+                margin: 0;
+                padding: 0;
+            }
+    
+            .table {
+                font-size: 12px;
+                overflow-x: auto;
+            }
+    
+            .topbar {
+                padding: 10px;
+            }
+        }
+    
+        @media (max-width: 480px) {
+            .table {
+                font-size: 10px;
+            }
+    
+            .navbar {
+                flex-direction: column;
+            }
+    
+            .topbar {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+    
+            .topbar .user-info {
+                font-size: 14px;
+            }
+    
+            .card {
+                margin-bottom: 10px;
+            }
+        }
+            .btn-receive {
+            display: inline-block;
+            }
+
+            .btn-forward:disabled {
+            display: none;
+            }
+
     </style>
+    
+
 </head>
 
 <body>
-
     <div class="topbar">
         <div class="form-inline">
             <span>User Info:</span>
@@ -161,28 +284,37 @@
                     <label for="position">Position: </label>
                     <input type="text" id="position" name="position" value="{{ session['position'] }}"
                         class="form-control mx-2" required>
-                </div>
-                <div class="form-group">
-                    <label for="office">Office: </label>
-                    <input type="text" id="office" name="office" value="{{ user_details[0] }}"
-                        class="form-control mx-2" required>
-                </div>
-                <div class="form-group">
-                    <label for="salary">Salary: </label>
-                    <input type="number" id="salary" name="salary" value="{{ user_details[1] }}"
-                        class="form-control mx-3" required>
-                </div>
+                    </div>
+                    <select id="division" name="division" class="form-control mx-2" required onchange="filterOffices()">
+                        <option value="">Select Division</option>
+                        <option value="OSDS" {{ 'selected' if session['division'] == 'OSDS' else '' }}>OSDS</option>
+                        <option value="SGOD" {{ 'selected' if session['division'] == 'SGOD' else '' }}>SGOD</option>
+                        <option value="CID" {{ 'selected' if session['division'] == 'CID' else '' }}>CID</option>
+                    </select>
+                
+                    <div class="form-group">
+                        <label for="office">Office: </label>
+                        <select id="office" name="office" class="form-control mx-2" required>
+                            <option value="">Select Office</option>
+                            {% for office in officeOptions %}
+                                <option value="{{ office }}" {{ 'selected' if session['office'] == office else '' }}>{{ office }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="salary">Salary: </label>
+                        <input type="text" id="salary" name="salary" value="{{ session['salary'] }}" class="form-control mx-3" required oninput="formatSalary(this)">
+                    </div>                    
                 <button type="submit" class="btn btn-danger">Update Info</button>
             </form>
         </div>
         <div class="btn-group">
-            <a href="{{ url_for('submit_document') }}" class="btn btn-custom">Submit Application</a>
-            <a href="{{ url_for('document_tracker') }}" class="btn btn-custom">Track Documents</a>
+            <a href="{{ url_for('applications_dashboard') }}" class="btn btn-custom">Submit Application</a>
+            <a href="{{ url_for('document_tracker') }}" class="btn btn-custom">Submit Documents</a>
             <a href="{{ url_for('change_password_user') }}" class="btn btn-warning">Change Password</a>
         </div>
     </div>
 
-    <!-- Tab Navigation -->
     <div class="container-fluid">
         <ul class="nav nav-tabs" id="applicationTabs" role="tablist">
             <li class="nav-item">
@@ -209,10 +341,11 @@
             <div class="tab-pane fade show active" id="summary" role="tabpanel" aria-labelledby="summary-tab">
                 <div class="card">
                     <div class="card-body">
-                        <h4>Summary of Applications</h4>
+                        <h4>Applications for Leave, CTO, and Travel Order Summary</h4>
                         <p>Pending: <span id="pendingCount">0</span></p>
                         <p>Recommended: <span id="recommendedCount">0</span></p>
                         <p>Approved: <span id="approvedCount">0</span></p>
+                        <p>Rejected: <span id="rejectedCount">0</span></p>
                     </div>
                 </div>
             </div>
@@ -230,7 +363,7 @@
                                 <th>End Date</th>
                                 <th>Status</th>
                                 <th>Actions</th>
-                                <th></th>
+                                <th>Reason</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -244,10 +377,10 @@
                                 <td>
                                     {% if application[7] == 'Approved' %}
                                     Approved
-                                    {% elif application[6] == 'Recommended' %}
-                                    Recommended
                                     {% elif application[7] == 'Rejected' %}
                                     Rejected
+                                    {% elif application[6] == 'Recommended' %}
+                                    Recommended
                                     {% else %}
                                     Pending
                                     {% endif %}
@@ -257,12 +390,13 @@
                                     <button class="btn btn-danger btn-sm btn-cancel" data-id="{{ application[0] }}"
                                         data-type="cto">Cancel</button>
                                     {% endif %}
-                                </td>
-                                <td>
+                                    {% if application[7] != 'Rejected' %}
                                     <a href="{{ url_for('download_application', app_type='cto', app_id=application[0]) }}" class="btn btn-info btn-sm">
                                         <i class="fas fa-save"></i>
                                     </a>
+                                    {% endif %}
                                 </td>
+                                <td>{{ application[8] }}</td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -284,11 +418,66 @@
                                 <th>Type of Leave</th>
                                 <th>Status</th>
                                 <th>Actions</th>
-                                <th></th>
+                                <th>Reason</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for application in leave_applications %}
+                            <tr>
+                                <td>{{ application[1] }}</td>
+                                <td>{{ application[2] }}</td>
+                                <td>{{ application[3] }}</td>
+                                <td>{{ application[4] }}</td>
+                                <td>{{ application[5] }}</td>
+                                <td>{{ application[6] }}</td>
+                                <td>
+                                    {% if application[8] == 'Approved' %}
+                                        Approved
+                                    {% elif application[8] == 'Rejected' %}
+                                        Rejected
+                                    {% elif application[7] == 'Recommended' %}
+                                        Recommended
+                                    {% else %}
+                                        Pending
+                                    {% endif %}
+                                </td>                              
+                                <td>
+                                    {% if application[8] != 'Approved' %}
+                                    <button class="btn btn-danger btn-sm btn-cancel" data-id="{{ application[0] }}"
+                                        data-type="leave">Cancel</button>
+                                    {% endif %}
+                                    {% if application[8] != 'Rejected' %}
+                                    <a href="{{ url_for('download_application', app_type='leave', app_id=application[0]) }}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-save"></i>
+                                    </a>
+                                    {% endif %}
+                                </td>                             
+                                <td>{{ application[9] }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="travel" role="tabpanel" aria-labelledby="travel-tab">
+                <div class="table-container">
+                    <table id="travelTable" class="table table-bordered table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Position</th>
+                                <th>Purpose</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Destination</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                                <th>Reason</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for application in travel_authorities %}
                             <tr>
                                 <td>{{ application[1] }}</td>
                                 <td>{{ application[2] }}</td>
@@ -310,14 +499,16 @@
                                 <td>
                                     {% if application[8] != 'Approved' %}
                                     <button class="btn btn-danger btn-sm btn-cancel" data-id="{{ application[0] }}"
-                                        data-type="leave">Cancel</button>
+                                        data-type="travel">Cancel</button>
                                     {% endif %}
-                                </td>
-                                <td>
-                                    <a href="{{ url_for('download_application', app_type='leave', app_id=application[0]) }}" class="btn btn-info btn-sm">
+                                    {% if application[8] != 'Rejected' %}
+                                    <a href="{{ url_for('download_application', app_type='travel', app_id=application[0]) }}" class="btn btn-info btn-sm">
                                         <i class="fas fa-save"></i>
                                     </a>
-                                </td>
+                                    {% endif %}
+
+                                </td>         
+                                <td>{{ application[9] }}</td>                
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -325,60 +516,251 @@
                 </div>
             </div>
 
-            <div class="tab-pane fade" id="travel" role="tabpanel" aria-labelledby="travel-tab">
+<!-- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -->
+<!-- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -->
+<!-- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -- DOCUMENT TRACKER -->
+
+    <div class="container-fluid">
+        <ul class="nav nav-tabs" id="applicationTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="track-tab" data-toggle="tab" href="#track" role="tab" aria-controls="track" aria-selected="true">Document Tracker</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="docsub-tab" data-toggle="tab" href="#submitted" role="tab" aria-controls="submitted" aria-selected="false">Documents Submitted</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="docrec-tab" data-toggle="tab" href="#received" role="tab" aria-controls="received" aria-selected="false">
+                    <span class="tab-label-container">
+                        Documents Received
+                        <span id="notification-badge" class="badge badge-danger" style="display: none; margin-left: 5px;">New</span>
+                    </span>
+                </a>
+            </li>
+        </ul>
+        <div class="tab-content" id="applicationTabsContent">
+            <div class="tab-pane fade show active" id="track" role="tabpanel" aria-labelledby="track-tab">
+                <div class="card">
+                    <div class="card-body">
+                        <h4>Document Tracker Summary</h4>
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Summary</th>
+                                    <th>Count</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>Number of Documents Submitted</td>
+                                    <td id="numSubmitted">0</td>
+                                </tr>
+                                <tr>
+                                    <td>Number of Documents Received</td>
+                                    <td id="numReceived">0</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Documents Submitted Table -->
+            <div class="tab-pane fade" id="submitted" role="tabpanel" aria-labelledby="docsub-tab">
                 <div class="table-container">
-                    <table id="travelTable" class="table table-bordered table-hover">
+                    <h4>Documents Submitted</h4>
+                    <table id="submittedDocumentsTable" class="table table-bordered table-hover">
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Position</th>
-                                <th>Days</th>
-                                <th>Destination</th>
-                                <th>Start Date</th>
-                                <th>End Date</th>
-                                <th>Status</th>
-                                <th>Actions</th>
-                                <th></th>
+                                <th class="wrap">Cancel/ Completed</th>
+                                <th class="wrap">Forwarded To</th>
+                                <th class="wrap">To Office</th>
+                                <th>Document</th>
+                                <th>Document History</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for application in travel_authorities %}
-                            <tr>
-                                <td>{{ application[1] }}</td>
-                                <td>{{ application[2] }}</td>
-                                <td>{{ application[3] }}</td>
-                                <td>{{ application[4] }}</td>
-                                <td>{{ application[5] }}</td>
-                                <td>{{ application[6] }}</td>
+                            {% for doc in submitted_documents %}
+                            <tr id="doc-row-{{ doc[0] }}"> <!-- Add unique ID for each row -->
                                 <td>
-                                    {% if application[8] == 'Approved' %}
-                                    Approved
-                                    {% elif application[8] == 'Rejected' %}
-                                    Rejected
-                                    {% elif application[8] == 'Recommended' %}
-                                    Recommended
-                                    {% else %}
-                                    Pending
-                                    {% endif %}
+                                    <button class="btn btn-danger btn-sm btn-delete" data-id="{{ doc[0] }}">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
                                 </td>
+                                <td class="wrap">{{ doc[2] }}</td>
+                                <td class="wrap">{{ forwarded_to_offices[doc[2]] }}</td> 
+                                <td></small>Document Type: {{ doc[1] }}<br></small>Details: {{ doc[4] }}</small><br><small>Created at: {{ doc[5] }}</small></td>
                                 <td>
-                                    {% if application[8] != 'Approved' %}
-                                    <button class="btn btn-danger btn-sm btn-cancel" data-id="{{ application[0] }}"
-                                        data-type="travel">Cancel</button>
-                                    {% endif %}
-                                </td>         
-                                <td>
-                                    <a href="{{ url_for('download_application', app_type='travel', app_id=application[0]) }}" class="btn btn-info btn-sm">
-                                        <i class="fas fa-save"></i>
+                                    <button type="button" class="btn btn-secondary" data-toggle="tooltip" title="
+                                        {% if receiving_histories[doc[0]] %}
+                                        <strong>Receiving History:</strong><br>
+                                        {% for receive in receiving_histories[doc[0]] | reverse %}
+                                            Received by: {{ receive[0] }}<br>Office Received: {{ receive[1] }}<br>Date Received: {{ receive[2] }}<hr>
+                                        {% endfor %}
+                                        {% else %}
+                                            No receiving history.
+                                        {% endif %}
+                                        
+                                        {% if forwarding_histories[doc[0]] %}
+                                            <strong>Forwarding History:</strong><br>
+                                            {% for history in forwarding_histories[doc[0]]%}
+                                                Forwarded To: {{ history[1] }}<br>Forwarded by: {{ history[0] }}<br>At: {{ history[3] }}<hr>
+                                            {% endfor %}
+                                        {% else %}
+                                            No forwarding history.<br>
+                                        {% endif %}
+                                    ">
+                                    <a href="{{ url_for('document_history', document_id=doc[0]) }}" class="btn btn-secondary" title="View History">
+                                        <i class="fas fa-info-circle"></i>
                                     </a>
-                                </td>                              
+                                    </button>
+                                </td>                                   
                             </tr>
                             {% endfor %}
                         </tbody>
                     </table>
                 </div>
             </div>
-        </body>           
+
+        <!-- Documents Received Table -->
+        <div class="tab-pane fade" id="received" role="tabpanel" aria-labelledby="docrec-tab">
+            <div class="table-container">
+                <h4>Documents Received</h4>
+                <table id="receivedDocumentsTable" class="table table-bordered table-hover">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Position</th>
+                            <th>Division</th>
+                            <th>Office</th>
+                            <th>Document Type</th>
+                            <th>Details</th>
+                            <th>Actions</th> 
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in received_documents %}
+                        <tr>
+                            <td>{{ doc[1] or 'N/A' }}</td>
+                            <td>{{ doc[2] or 'N/A' }}</td>
+                            <td>{{ doc[3] or 'N/A' }}</td>
+                            <td>{{ doc[4] or 'N/A' }}</td>
+                            <td>{{ doc[5] or 'N/A' }}</td>
+                            <td>{{ doc[7] or 'N/A' }}</td>
+                            <td>
+                                <!-- Receive Button: Visible when document has not been received -->
+                                <button type="button" class="btn btn-success" 
+                                id="receiveButton-{{ doc[0] }}"
+                                {% if doc[8] == 1 %} style="display: none;" {% endif %}
+                                onclick="receiveDocument({{ doc[0] }})">
+                                Receive
+                            </button>
+                
+                            <form action="{{ url_for('forward_document') }}" method="POST" style="display: inline;">
+                                <input type="hidden" name="document_id" value="{{ doc[0] }}">
+                                <button type="submit" class="btn btn-primary" 
+                                    id="forwardButton-{{ doc[0] }}"
+                                    {% if doc[8] == 0 %} style="display: none;" {% endif %}>
+                                    Forward
+                                </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <div class="text-right mt-3">
+                    <a href="{{ url_for('print_documents') }}" class="btn btn-secondary">
+                        <i class="fa fa-print"></i> Print Received and Forwarded Documents
+                    </a>
+                </div>
+            </div>
+        </div>
+
+
+
+<!-- SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS  SCRIPTS   -->
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Get the length of received documents from the template variable
+        const receivedDocuments = parseInt("{{ received_documents|length }}", 10);
+        if (receivedDocuments > 0) {
+            document.getElementById("notification-badge").style.display = "inline";
+        }
+    });
+</script>
+        <script>
+    function receiveDocument(documentId) {
+        $.ajax({
+            url: '/receive_document',  // Endpoint to process the receive action
+            method: 'POST',
+            data: {
+                document_id: documentId,
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    // Hide the Receive button and show the Forward button
+                    $('#receiveButton-' + documentId).hide();
+                    $('#forwardButton-' + documentId).show();
+                } else if (response.status === 'already_received') {
+                    alert('This document has already been received.');
+                } else {
+                    alert('There was an error processing the document.');
+                }
+            },
+            error: function() {
+                alert('Error with the request.');
+                    }
+                });
+            }
+
+
+            document.addEventListener('DOMContentLoaded', () => {
+                document.querySelectorAll('.btn-delete').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const documentId = button.getAttribute('data-id');
+            
+                        if (confirm("Are you sure you want to delete this document?")) {
+                            fetch(`/delete_document/${documentId}`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                }
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    // Find the row and remove it, if it exists
+                                    const row = document.getElementById(`doc-row-${documentId}`);
+                                    if (row) {
+                                        row.remove();
+                                        alert('Document deleted successfully.');
+                                    } else {
+                                        alert('Document row not found.');
+                                    }
+                                } else {
+                                    alert('Failed to delete the document: ' + (data.error || 'Unknown error'));
+                                }
+                            })
+                            .catch(error => {
+                                alert('Error: ' + error.message);
+                            });
+                        }
+                    });
+                });
+            });
+            
+        </script>
+        
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>        
+        <script>
+            $(document).ready(function() {
+                // Your JavaScript/jQuery code to handle tab functionality and any other interactive elements.
+            });
+        </script>
+
+                </tbody>
+            </table>
 
     <!-- Bootstrap JS, Popper.js, and jQuery -->
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
@@ -425,10 +807,86 @@
             document.getElementById("pendingCount").textContent = countApplicationsByStatus("Pending");
             document.getElementById("recommendedCount").textContent = countApplicationsByStatus("Recommended");
             document.getElementById("approvedCount").textContent = countApplicationsByStatus("Approved");
+            document.getElementById("rejectedCount").textContent = countApplicationsByStatus("Rejected");
         });
     </script>
 
+    <script>
+        $(document).ready(function(){
+        $('[data-toggle="tooltip"]').tooltip({
+            html: true,
+            trigger: 'hover'
+        });
+    });
+    </script>
+    <script>
+        const officeOptions = {
+            OSDS: ["Accounting", "Admin", "Budget", "ICT", "Legal", "Office of the ASDS", "Office of the SDS", "Payroll", "Personnel", "Records"],
+            SGOD: ["Education Facilities", "Health", "HRD", "Planning & Research", "SGOD", "SMME", "SMN"],
+            CID: ["ALS", "CID", "LR", "PSDS"]
+        };
 
+        function filterOffices() {
+            const division = document.getElementById('division').value;
+            const officeSelect = document.getElementById('office');
+            officeSelect.innerHTML = '<option value="">Select Office</option>'; // Reset options
+
+            if (division && officeOptions[division]) {
+                officeOptions[division].forEach(office => {
+                    const option = document.createElement('option');
+                    option.value = office;
+                    option.textContent = office;
+                    officeSelect.appendChild(option);
+                });
+            }
+
+            // Set the selected office from the session
+            const selectedOffice = "{{ session['office'] }}";
+            if (selectedOffice) {
+                officeSelect.value = selectedOffice;
+            }
+        }
+
+        // Call filterOffices on page load to set the correct options
+        window.onload = function() {
+            filterOffices();
+        };
+    </script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                function updateDocumentCounts() {
+                    const submittedCount = document.querySelectorAll('#submittedDocumentsTable tbody tr').length;
+                    const receivedCount = document.querySelectorAll('#receivedDocumentsTable tbody tr').length;
+    
+                    document.getElementById('numSubmitted').textContent = submittedCount;
+                    document.getElementById('numReceived').textContent = receivedCount;
+                }
+    
+                updateDocumentCounts();
+            });
+        </script>
+<script>
+    function formatSalary(input) {
+        let value = input.value;
+
+        // Remove any non-numeric characters except for the decimal point and comma
+        value = value.replace(/[^0-9.]/g, '');
+
+        // Handle two decimals
+        let parts = value.split('.');
+        if (parts[1]) {
+            parts[1] = parts[1].substring(0, 2); // Limit to two decimal places
+        }
+        value = parts.join('.');
+
+        // Format the integer part with commas
+        let integerPart = parts[0];
+        integerPart = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ','); // Add commas
+
+        // Reassemble the formatted value
+        input.value = integerPart + (parts[1] ? '.' + parts[1] : '');
+    }
+</script>
 
 </html>
 

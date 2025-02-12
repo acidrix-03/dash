@@ -1,6 +1,357 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Document Tracker</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+        <style>
+            /* Reset and base styles */
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+    
+            body {
+                font-family: 'Roboto', sans-serif;
+                background-color: #f8f9fa;
+                color: #343a40;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 100vh;
+                padding: 20px;
+            }
+    
+            .container {
+                background-color: #ffffff;
+                border-radius: 12px;
+                padding: 30px;
+                width: 100%;
+                max-width: 800px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+    
+            .page-title {
+                font-size: 1.8rem;
+                font-weight: bold;
+                color: #495057;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+    
+            .form-group {
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+    
+            .form-field {
+                display: flex;
+                flex-direction: column;
+            }
+    
+            .form-field label {
+                font-size: 0.9rem;
+                color: #495057;
+                font-weight: 600;
+                margin-bottom: 8px;
+            }
+    
+            .input-text,
+            .input-select {
+                font-size: 1rem;
+                padding: 12px 14px;
+                border: 1px solid #ced4da;
+                border-radius: 8px;
+                width: 100%;
+            }
+    
+            .input-text:focus,
+            .input-select:focus {
+                outline: none;
+                border-color: #007bff;
+                box-shadow: 0 0 4px rgba(0, 123, 255, 0.3);
+            }
+    
+            .btn-submit {
+                background-color: #007bff;
+                color: white;
+                padding: 14px;
+                font-size: 1rem;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+                text-align: center;
+                width: 100%;
+            }
+    
+            .btn-submit:hover {
+                background-color: #0056b3;
+            }
+    
+            .btn-link {
+                display: inline-block;
+                padding: 10px 16px;
+                font-size: 0.9rem;
+                text-align: center;
+                text-decoration: none;
+                color: #007bff;
+                border: 1px solid #007bff;
+                border-radius: 8px;
+                transition: background-color 0.3s ease, color 0.3s ease;
+            }
+    
+            .btn-link:hover {
+                background-color: #007bff;
+                color: #ffffff;
+            }
+    
+            .button-group {
+                display: flex;
+                flex-direction: row;
+                justify-content: center;
+                gap: 15px;
+            }
+    
+            .btn-procurement {
+                background-color: #e67e22;
+                color: #fff;
+                padding: 14px;
+                font-size: 1rem;
+                text-decoration: none;
+                border: none;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                width: 100%;
+                text-align: center;
+            }
+    
+            .btn-procurement:hover {
+                background-color: #d35400;
+                box-shadow: 0 6px 8px rgba(0, 0, 0, 0.15);
+                transform: translateY(-2px);
+            }
+    
+            @media (max-width: 768px) {
+                .container {
+                    padding: 20px;
+                }
+    
+                .button-group {
+                    flex-direction: column;
+                }
+            }
+        </style>
 
-{% block content %}
-<h2>This will be the Documents Tracker page</h2>
-<a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary mt-3">Back to Dashboard</a>
-{% endblock %}
+    <script>
+        function toggleOtherInput() {
+            const documentType = document.getElementById("document_type").value;
+            const otherInput = document.getElementById("other_document_type");
+
+            otherInput.style.display = documentType === "Other" ? "block" : "none";
+        }
+
+        async function searchNames() {
+            const input = document.getElementById("forwarded_to").value;
+            const suggestionsBox = document.getElementById("autocomplete-suggestions");
+
+            if (input.length < 1) {
+                suggestionsBox.innerHTML = '';
+                suggestionsBox.classList.remove("active");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/search_users?q=${encodeURIComponent(input)}`);
+                if (!response.ok) throw new Error("Network response was not ok");
+                const usernames = await response.json();
+                console.log(usernames); // Debugging line to check received data
+
+                suggestionsBox.innerHTML = '';
+                usernames.forEach(username => {
+                    const div = document.createElement("div");
+                    div.classList.add("autocomplete-suggestion");
+                    div.textContent = username;
+
+                    div.onclick = () => {
+                        document.getElementById("forwarded_to").value = username;
+                        suggestionsBox.innerHTML = '';
+                        suggestionsBox.classList.remove("active");
+                    };
+
+                    suggestionsBox.appendChild(div);
+                });
+
+                if (usernames.length > 0) {
+                    suggestionsBox.classList.add("active");
+                } else {
+                    suggestionsBox.classList.remove("active");
+                }
+
+            } catch (error) {
+                console.error("Error fetching usernames:", error);
+            }
+        }
+    </script>
+</head>
+<body>
+    <div class="content">
+        <div class="container">
+            <h2 class="page-title">Document Tracker</h2>
+            <form action="{{ url_for('submit_document_tracker') }}" method="POST" class="form-group">
+                
+                <!-- Hidden Name field -->
+                <div class="form-field" style="display: none;">
+                    <label for="name">Name:</label>
+                    <input type="text" id="name" name="name" value="{{ session['username'] }}" class="input-text" required>
+                </div>
+
+                <!-- Hidden Position field -->
+                <div class="form-field" style="display: none;">
+                    <label for="position">Position:</label>
+                    <input type="text" id="position" name="position" value="{{ session['position'] }}" class="input-text" required>
+                </div>
+
+                <!-- Hidden Office field -->
+                <div class="form-field" style="display: none;">
+                    <label for="office">Office:</label>
+                    <input type="text" id="office" name="office" value="{{ session['office'] }}" class="input-text">
+                </div>
+                
+                <div class="form-field" style="display: none;">
+                    <label for="division">Division:</label>
+                    <input type="text" id="division" name="division" value="{{ session['division'] }}" class="input-text" required>
+                </div>
+                <div class="form-field">
+                    <label for="document_type">Document Type:</label>
+                    <select id="document_type" name="document_type" onchange="toggleOtherInput()" required class="input-select">
+                        <option value="" disabled selected>Select Document Type</option>
+                        <option value="ACR">ACR</option>
+                        <option value="Advisory">Advisory</option>
+                        <option value="Application Papers">Application Papers</option>
+                        <option value="BAC Documents">BAC Documents</option>
+                        <option value="Bonding Request">Bonding Request</option>
+                        <option value="Budget Proposal">Budget Proposal</option>
+                        <option value="Cash Advance">Cash Advance</option>
+                        <option value="Change of Name Application">Change of Name Application</option>
+                        <option value="COC Request">COC Request</option>
+                        <option value="Complaint">Complaint</option>
+                        <option value="Contract">Contract</option>
+                        <option value="CTO Application">CTO Application</option>
+                        <option value="Disbursement Voucher">Disbursement Voucher</option>
+                        <option value="Endorsement">Endorsement</option>
+                        <option value="E-SIP">E-SIP</option>
+                        <option value="Form 48">Form 48</option>
+                        <option value="Form 5">Form 5</option>
+                        <option value="Form 6">Form 6</option>
+                        <option value="Government Permit">Government Permit</option>
+                        <option value="Invitation">Invitation</option>
+                        <option value="Job Description">Job Description</option>
+                        <option value="Justification">Justification</option>
+                        <option value="Leave Application">Leave Application</option>
+                        <option value="Letter">Letter</option>
+                        <option value="Logistics Request">Logistics Request</option>
+                        <option value="Memorandum">Memorandum</option>
+                        <option value="MOA/MOU">MOA/MOU</option>
+                        <option value="Monthly Schedule">Monthly Schedule</option>
+                        <option value="Office Order">Office Order</option>
+                        <option value="ORF">ORF</option>
+                        <option value="Purchase Request">Purchase Request</option>
+                        <option value="Quarterly Report">Quarterly Report</option>
+                        <option value="Request">Request</option>
+                        <option value="Research">Research</option>
+                        <option value="Resume">Resume</option>
+                        <option value="Travel Authority">Travel Authority</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label for="details">Details:</label>
+                    <input type="text" id="details" name="details" class="input-text" required>
+                </div>
+
+                <div class="form-field">
+                    <label for="forward_to_division">Forward to Division:</label>
+                    <select id="forward_to_division" name="forward_to_division" class="input-select" onchange="updateOfficeOptions()" required>
+                        <option value="" disabled selected>Select Division</option>
+                        <option value="SGOD">SGOD</option>
+                        <option value="OSDS">OSDS</option>
+                        <option value="CID">CID</option>
+                    </select>
+                </div>                
+
+                <div class="form-field">
+                    <label for="office_forwarded_to">Office Forwarded to:</label>
+                    <select id="office_forwarded_to" name="office_forwarded_to" class="input-select" required>
+                        <option value="">Select Office</option>
+                        {% for office in officeOptions %}
+                            <option value="{{ office }}" {{ 'selected' if session['office'] == office else '' }}>{{ office }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-field">
+                    <label for="forwarded_to">Forwarded to:</label>
+                    <div style="position: relative;">
+                        <input type="text" id="forwarded_to" name="forwarded_to" class="input-text" oninput="searchNames()" autocomplete="off">
+                        <div id="autocomplete-suggestions" class="autocomplete-suggestions"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit">Submit</button>
+                <div class="button-group">
+                    <a href="{{ url_for('bac_proc') }}" class="btn-procurement">For Procurement (BAC)</a>
+                    <a href="{{ url_for('user_dashboard') }}" class="btn-link">Back to Dashboard</a>
+                </div>
+            </form>
+
+            {% with messages = get_flashed_messages(with_categories=True) %}
+                {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+
+    <script>
+        const officeOptions = {
+            OSDS: ["Accounting", "Admin", "Budget", "ICT", "Legal", "Office of the ASDS", "Office of the SDS", "Payroll", "Personnel", "Records"],
+            SGOD: ["Education Facilities", "Health", "HRD", "Planning & Research", "SGOD", "SMME", "SMN"],
+            CID: ["ALS", "CID", "LR", "PSDS"]
+        };
+
+        function updateOfficeOptions() {
+            const divisionSelect = document.getElementById("forward_to_division");
+            const officeSelect = document.getElementById("office_forwarded_to");
+
+            // Clear current options
+            officeSelect.innerHTML = '<option value="">Select Office</option>';
+
+            // Get selected division
+            const selectedDivision = divisionSelect.value;
+
+            // Populate offices based on selected division
+            if (officeOptions[selectedDivision]) {
+                officeOptions[selectedDivision].forEach(office => {
+                    const option = document.createElement("option");
+                    option.value = office;
+                    option.text = office;
+                    officeSelect.appendChild(option);
+                });
+            }
+        }
+    </script>
+</body>
+</html>

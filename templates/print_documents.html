@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Documents</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f4f6f9;
+            font-family: Arial, sans-serif;
+            font-size: 0.9em;
+            color: #333;
+        }
+        .container {
+            max-width: 750px;
+            background: #fff;
+            border-radius: 6px;
+            padding: 15px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;  /* Prevents overflowing content */
+        }
+        h2 {
+            color: #333;
+            font-size: 1.2em;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        h4 {
+            font-size: 1em;
+            color: #007bff;
+            border-bottom: 1px solid #007bff;
+            padding-bottom: 3px;
+            margin-top: 20px;
+        }
+        .table-container {
+            margin-bottom: 8px;
+            overflow-x: auto;  /* Ensures horizontal scrolling if needed */
+        }
+        .table {
+            font-size: 0.85em;
+            color: #333;
+            width: 100%;  /* Ensures table takes full width of the container */
+            background-color: #f8f9fa;
+            border-left: 3px solid #28a745;
+            border-radius: 4px;
+            table-layout: auto; /* Avoids table overflow */
+        }
+        .table th, .table td {
+            padding: 8px;
+            text-align: center;
+            vertical-align: middle;
+            word-wrap: break-word;  /* Ensure text wraps */
+        }
+        .table .wrap-text {
+            word-wrap: break-word;
+            word-break: break-word;
+            white-space: normal;
+        }
+        .btn-container {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+        .print-btn {
+            color: #007bff;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .print-btn:hover {
+            text-decoration: underline;
+        }
+        @media print {
+            .btn-container {
+                display: none;
+            }
+            body, .container {
+                box-shadow: none;
+                background-color: white;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Received and Forwarded Documents</h2>
+
+        <!-- Global Search Bar -->
+        <div class="mb-4">
+            <input type="text" id="globalSearch" class="form-control" onkeyup="filterAllTables()" placeholder="Search for documents...">
+        </div>
+
+        <!-- Documents Received Section -->
+        <h4>Documents Received</h4>
+        <div class="table-container">
+            <table class="table table-bordered table-hover table-striped" id="receivedTable">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Position</th>
+                        <th>Division</th>
+                        <th>Office</th>
+                        <th class="wrap-text">Document Type</th>
+                        <th>Details</th>
+                        <th>Submitted By</th>
+                        <th>Date Received</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in received_documents %}
+                    <tr>
+                        <td>{{ doc[1] or 'N/A' }}</td>
+                        <td>{{ doc[2] or 'N/A' }}</td>
+                        <td>{{ doc[3] or 'N/A' }}</td>
+                        <td>{{ doc[4] or 'N/A' }}</td>
+                        <td class="wrap-text">{{ doc[5] or 'N/A' }}</td>
+                        <td>{{ doc[6] or 'N/A' }}</td>
+                        <td>{{ doc[7] or 'N/A' }}</td>
+                        <td>{{ doc[8] or 'N/A' }}</td> <!-- Date Received -->
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Documents Forwarded Section -->
+        <h4>Documents Forwarded</h4>
+        <div class="table-container">
+            <table class="table table-bordered table-hover table-striped" id="forwardedTable">
+                <thead class="thead-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Position</th>
+                        <th>Division</th>
+                        <th>Office</th>
+                        <th class="wrap-text">Document Type</th>
+                        <th>Details</th>
+                        <th>Forwarded To</th>
+                        <th>Date Forwarded</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in forwarded_documents %}
+                    <tr>
+                        <td>{{ doc[1] or 'N/A' }}</td>
+                        <td>{{ doc[2] or 'N/A' }}</td>
+                        <td>{{ doc[3] or 'N/A' }}</td>
+                        <td>{{ doc[4] or 'N/A' }}</td>
+                        <td class="wrap-text">{{ doc[5] or 'N/A' }}</td>
+                        <td>{{ doc[6] or 'N/A' }}</td>
+                        <td>{{ doc[7] or 'N/A' }}</td> <!-- Forwarded To -->
+                        <td>{{ doc[8] or 'N/A' }}</td> <!-- Date Forwarded -->
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="btn-container">
+            <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary btn-sm"><i class="fas fa-arrow-left"></i> Back to Dashboard</a>
+            <span class="print-btn" onclick="window.print();"><i class="fas fa-print"></i> Print</span>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+    <script>
+        // Function to filter both tables
+        function filterAllTables() {
+            var input, filter, receivedTable, forwardedTable, tr, td, i, j, txtValue;
+            input = document.getElementById('globalSearch');
+            filter = input.value.toUpperCase();
+            receivedTable = document.getElementById('receivedTable');
+            forwardedTable = document.getElementById('forwardedTable');
+
+            // Filter documents received table
+            tr = receivedTable.getElementsByTagName('tr');
+            for (i = 0; i < tr.length; i++) {
+                td = tr[i].getElementsByTagName('td');
+                for (j = 0; j < td.length; j++) {
+                    if (td[j]) {
+                        txtValue = td[j].textContent || td[j].innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            tr[i].style.display = "";
+                            break;
+                        } else {
+                            tr[i].style.display = "none";
+                        }
+                    }
+                }
+            }
+
+            // Filter documents forwarded table
+            tr = forwardedTable.getElementsByTagName('tr');
+            for (i = 0; i < tr.length; i++) {
+                td = tr[i].getElementsByTagName('td');
+                for (j = 0; j < td.length; j++) {
+                    if (td[j]) {
+                        txtValue = td[j].textContent || td[j].innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            tr[i].style.display = "";
+                            break;
+                        } else {
+                            tr[i].style.display = "none";
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+{% endblock %}

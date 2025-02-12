@@ -1,64 +1,64 @@
 {% extends "base.html" %}
 {% block content %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Travel Authority Application</title>
-</head>
-<body>
-    <form id="travelAuthorityForm" method="POST" action="{{ url_for('submit_and_print_travel_authority_excel') }}">
-        <div class="form-group">
-            <label for="name">Name:</label>
-            <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" required>
+<div class="container mt-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">Travel Authority Application</h2>
         </div>
-        <div class="form-group">
-            <label for="position">Position:</label>
-            <input type="text" id="position" name="position" value="{{ session['position'] }}" class="form-control" required>
-        </div>
-        <div class="form-group">
-            <label for="purpose">Purpose:</label>
-            <input type="text" id="purpose" name="purpose" class="form-control" required>
-        </div>
-        <div class="form-group">
-            <label for="destination">Destination:</label>
-            <input type="text" id="destination" name="destination" class="form-control" required>
-        </div>
-        <div class="form-group">
-            <label for="start_date">Start Date:</label>
-            <input type="date" id="start_date" name="start_date" class="form-control" required>
-        </div>
-        <div class="form-group">
-            <label for="end_date">End Date:</label>
-            <input type="date" id="end_date" name="end_date" class="form-control" required>
-        </div>
-        <div class="form-group">
-            <label for="recommending_approval">Recommender:</label>
-            <select id="recommending_approval" name="recommending_approval" class="form-control" required>
-                <option value="">Select Recommender</option>
-                {% for user in approving_users %}
-                    <option value="{{ user }}">{{ user }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="host">Host of Activity:</label>
-            <input type="text" id="host" name="host" class="form-control" required>
-        </div>
+        <div class="card-body">
+            <form id="travelAuthorityForm" method="POST" action="{{ url_for('submit_and_print_travel_authority_excel') }}">
+                <div class="form-group mb-3">
+                    <label for="name" class="form-label">Name:</label>
+                    <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="position" class="form-label">Position:</label>
+                    <input type="text" id="position" name="position" value="{{ session['position'] }}" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="purpose" class="form-label">Purpose:</label>
+                    <input type="text" id="purpose" name="purpose" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="destination" class="form-label">Destination:</label>
+                    <input type="text" id="destination" name="destination" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="start_date" class="form-label">Start Date:</label>
+                    <input type="date" id="start_date" name="start_date" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="end_date" class="form-label">End Date:</label>
+                    <input type="date" id="end_date" name="end_date" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="recommending_approval" class="form-label">Recommender:</label>
+                    <select id="recommending_approval" name="recommending_approval" class="form-select" required>
+                        <option value="" disabled selected>Select Recommender</option>
+                        {% for user in approving_users %}
+                            <option value="{{ user }}">{{ user }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="host" class="form-label">Host of Activity:</label>
+                    <input type="text" id="host" name="host" class="form-control" required>
+                </div>
 
-        <!-- Submit and Download Excel Button -->
-        <a href="{{ url_for('user_dashboard') }}" class="btn btn-primary mt-1">Back to My Dashboard</a>
-        <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Travel Authority</button>
-    </form>
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary">Back to My Dashboard</a>
+                    <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Travel Authority</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-    <script>
-        function handleFormSubmit() {
-            setTimeout(function() {
-                window.location.href = "{{ url_for('user_dashboard') }}";
-            }, 1000);
-        }
-    </script>
-</body>
-</html>
+<script>
+    function handleFormSubmit() {
+        setTimeout(function() {
+            window.location.href = "{{ url_for('user_dashboard') }}";
+        }, 1000);
+    }
+</script>
 {% endblock %}

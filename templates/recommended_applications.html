@@ -1,23 +1,28 @@
 {% extends "base.html" %}
+
 {% block content %}
 
 <div class="container mt-5">
     <h2 class="text-center mb-4">Recommended Applications</h2>
 
+    <!-- Global Search Bar -->
+    <div class="mb-4">
+        <input type="text" id="globalSearch" class="form-control" onkeyup="filterAllTables()" placeholder="Search for applications...">
+    </div>
+
     <!-- CTO Applications Section -->
     <div class="application-section mb-4">
         <h3>CTO Applications</h3>
-        <input type="text" id="ctoFilterInput" onkeyup="filterTable('ctoTable', 'ctoFilterInput')" placeholder="Search for names.." class="form-control mb-3">
         <table id="ctoTable" class="table table-striped table-bordered">
             <thead class="thead-dark">
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Date Recommended</th>
+                    <th onclick="sortTable('ctoTable', 0)" class="sortable">ID</th>
+                    <th onclick="sortTable('ctoTable', 1)" class="sortable">Name</th>
+                    <th onclick="sortTable('ctoTable', 2)" class="sortable">Position</th>
+                    <th onclick="sortTable('ctoTable', 3)" class="sortable">Days</th>
+                    <th onclick="sortTable('ctoTable', 4)" class="sortable">Start Date</th>
+                    <th onclick="sortTable('ctoTable', 5)" class="sortable">End Date</th>
+                    <th onclick="sortTable('ctoTable', 6)" class="sortable">Date Recommended</th>
                 </tr>
             </thead>
             <tbody>
@@ -34,22 +39,22 @@
                 {% endfor %}
             </tbody>
         </table>
+        <div id="ctoPagination" class="pagination-controls"></div>
     </div>
 
     <!-- Leave Applications Section -->
     <div class="application-section mb-4">
         <h3>Leave Applications</h3>
-        <input type="text" id="leaveFilterInput" onkeyup="filterTable('leaveTable', 'leaveFilterInput')" placeholder="Search for names.." class="form-control mb-3">
         <table id="leaveTable" class="table table-striped table-bordered">
             <thead class="thead-dark">
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Days</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Date Recommended</th>
+                    <th onclick="sortTable('leaveTable', 0)" class="sortable">ID</th>
+                    <th onclick="sortTable('leaveTable', 1)" class="sortable">Name</th>
+                    <th onclick="sortTable('leaveTable', 2)" class="sortable">Position</th>
+                    <th onclick="sortTable('leaveTable', 3)" class="sortable">Days</th>
+                    <th onclick="sortTable('leaveTable', 4)" class="sortable">Start Date</th>
+                    <th onclick="sortTable('leaveTable', 5)" class="sortable">End Date</th>
+                    <th onclick="sortTable('leaveTable', 6)" class="sortable">Date Recommended</th>
                 </tr>
             </thead>
             <tbody>
@@ -66,23 +71,23 @@
                 {% endfor %}
             </tbody>
         </table>
+        <div id="leavePagination" class="pagination-controls"></div>
     </div>
 
     <!-- Travel Authorities Section -->
     <div class="application-section mb-4">
         <h3>Travel Authorities</h3>
-        <input type="text" id="travelFilterInput" onkeyup="filterTable('travelTable', 'travelFilterInput')" placeholder="Search for names.." class="form-control mb-3">
         <table id="travelTable" class="table table-striped table-bordered">
             <thead class="thead-dark">
                 <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Position</th>
-                    <th>Start Date</th>
-                    <th>End Date</th>
-                    <th>Destination</th>
-                    <th>Purpose</th>
-                    <th>Date Recommended</th>
+                    <th onclick="sortTable('travelTable', 0)" class="sortable">ID</th>
+                    <th onclick="sortTable('travelTable', 1)" class="sortable">Name</th>
+                    <th onclick="sortTable('travelTable', 2)" class="sortable">Position</th>
+                    <th onclick="sortTable('travelTable', 3)" class="sortable">Start Date</th>
+                    <th onclick="sortTable('travelTable', 4)" class="sortable">End Date</th>
+                    <th onclick="sortTable('travelTable', 5)" class="sortable">Destination</th>
+                    <th onclick="sortTable('travelTable', 6)" class="sortable">Purpose</th>
+                    <th onclick="sortTable('travelTable', 7)" class="sortable">Date Recommended</th>
                 </tr>
             </thead>
             <tbody>
@@ -100,6 +105,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        <div id="travelPagination" class="pagination-controls"></div>
     </div>
 
     <div class="text-center mt-4">
@@ -108,28 +114,85 @@
 </div>
 
 <script>
-function filterTable(tableId, inputId) {
-    var input, filter, table, tr, td, i, j, txtValue;
-    input = document.getElementById(inputId);
-    filter = input.value.toLowerCase();
-    table = document.getElementById(tableId);
-    tr = table.getElementsByTagName("tr");
-
-    // Loop through all table rows, and hide those who don't match the search query
-    for (i = 1; i < tr.length; i++) {
-        tr[i].style.display = "none"; // Hide the row initially
-        td = tr[i].getElementsByTagName("td");
-        for (j = 0; j < td.length; j++) {
-            if (td[j]) {
-                txtValue = td[j].textContent || td[j].innerText;
-                if (txtValue.toLowerCase().indexOf(filter) > -1) {
-                    tr[i].style.display = ""; // Show the row if it matches
-                    break; // No need to check other cells in the row
-                }
-            }
+// Filtering function for global search
+function filterAllTables() {
+    let input = document.getElementById('globalSearch');
+    let filter = input.value.toUpperCase();
+    let tables = ['ctoTable', 'leaveTable', 'travelTable'];
+    
+    tables.forEach(tableId => {
+        let table = document.getElementById(tableId);
+        let tr = table.getElementsByTagName('tr');
+        for (let i = 1; i < tr.length; i++) {
+            let tdArray = tr[i].getElementsByTagName('td');
+            let rowContainsSearchText = Array.from(tdArray).some(td => {
+                return td.textContent.toUpperCase().indexOf(filter) > -1;
+            });
+            tr[i].style.display = rowContainsSearchText ? '' : 'none';
         }
+    });
+}
+
+// Function to sort table by a given column index
+function sortTable(tableId, colIndex) {
+    let table = document.getElementById(tableId);
+    let rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    let sortedRows = Array.from(rows).sort((a, b) => {
+        let aVal = a.getElementsByTagName('td')[colIndex].innerText;
+        let bVal = b.getElementsByTagName('td')[colIndex].innerText;
+
+        // Sort by date if the column is a date
+        if (colIndex >= 4) { // Assuming start/end/date columns are at index 4 or higher
+            return new Date(bVal) - new Date(aVal);  // Descending sort
+        }
+
+        return aVal.localeCompare(bVal); // Default string sort
+    });
+
+    // Clear and re-append rows in sorted order
+    let tbody = table.getElementsByTagName('tbody')[0];
+    tbody.innerHTML = '';
+    sortedRows.forEach(row => tbody.appendChild(row));
+}
+
+// Function to paginate the table
+function paginateTable(tableId, itemsPerPage) {
+    let table = document.getElementById(tableId);
+    let rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    let totalPages = Math.ceil(rows.length / itemsPerPage);
+
+    // Create pagination controls
+    let pagination = document.getElementById(tableId + 'Pagination');
+    pagination.innerHTML = ''; // Clear previous pagination
+
+    for (let i = 1; i <= totalPages; i++) {
+        let button = document.createElement('button');
+        button.innerText = i;
+        button.classList.add('btn', 'btn-outline-primary', 'mx-1');
+        button.onclick = function () {
+            displayPage(tableId, i, itemsPerPage);
+        };
+        pagination.appendChild(button);
     }
 }
+
+// Function to display specific page
+function displayPage(tableId, pageNum, itemsPerPage) {
+    let table = document.getElementById(tableId);
+    let rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+
+    for (let i = 0; i < rows.length; i++) {
+        rows[i].style.display = (Math.floor(i / itemsPerPage) === pageNum - 1) ? '' : 'none';
+    }
+}
+
+// Initialize tables on document ready
+$(document).ready(function() {
+    const itemsPerPage = 5; // Set number of items per page
+    paginateTable('ctoTable', itemsPerPage);
+    paginateTable('leaveTable', itemsPerPage);
+    paginateTable('travelTable', itemsPerPage);
+});
 </script>
 
 <style>
@@ -137,23 +200,16 @@ body {
     background-color: #f8f9fa;
 }
 .application-section {
-    background-color: #ffffff;
-    border-radius: 0.5rem;
+    background-color: #fff;
     padding: 20px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
-.table th {
-    background-color: #007bff;
-    color: white;
+.sortable {
+    cursor: pointer;
 }
-.table tbody tr:hover {
-    background-color: #e9ecef;
-}
-.btn-secondary {
-    border-radius: 0.5rem;
-}
-.btn-secondary:hover {
-    background-color: #6c757d;
+.pagination-controls {
+    margin-top: 20px;
 }
 </style>
 

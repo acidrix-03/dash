@@ -1,7 +1,18 @@
-def add_rejection_comment_column():
-    with sqlite3.connect('documents.db') as conn:
-        conn.execute('ALTER TABLE cto_application ADD COLUMN rejection_comment TEXT;')
-        conn.execute('ALTER TABLE leave_application ADD COLUMN rejection_comment TEXT;')
-        conn.execute('ALTER TABLE travel_authority ADD COLUMN rejection_comment TEXT;')
+import sqlite3
+
+def add_is_archived_column():
+    try:
+        conn = sqlite3.connect('document_tracker.db')
+        cursor = conn.cursor()
+        
+        # Add the is_archived column
+        cursor.execute("ALTER TABLE documents ADD COLUMN is_archived INTEGER DEFAULT 0;")
+        
         conn.commit()
-    print("Rejection comment column added successfully.")
+        conn.close()
+        print("is_archived column added successfully.")
+        
+    except sqlite3.OperationalError as e:
+        print("Error:", e)
+
+add_is_archived_column()

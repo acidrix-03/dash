@@ -54,3 +54,27 @@ body {
     overflow-x: auto;  /* Enable horizontal scroll when table content overflows */
     max-width: 100%;  /* Ensure the table stays within the container's width */
 }
+
+body {
+    background-color: #f7f9fc; /* Light background */
+  }
+  
+  .card {
+    border-radius: 8px;
+  }
+  
+  .card-title {
+    color: #333;
+    font-weight: 600;
+  }
+  
+  #search-result {
+    font-size: 1rem;
+    margin-top: 10px;
+  }
+  
+  .form-control:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(0, 204, 0, 0.3);
+  }
+  

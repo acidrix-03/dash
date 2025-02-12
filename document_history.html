@@ -1,0 +1,34 @@
+<div class="container">
+    <h2>Document Details</h2>
+    <p><strong>Document Type:</strong> {{ document[1] }}</p>
+    <p><strong>Details:</strong> {{ document[4] }}</p>
+    <p><strong>Created at:</strong> {{ document[5] }}</p>
+
+    <h3>Forwarding History</h3>
+    {% if forwarding_history %}
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>Forwarded To</th>
+                    <th>Forwarded By</th>
+                    <th>Comments</th>
+                    <th>Forwarded At</th>
+                    <th>Received On</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for history in forwarding_history %}
+                    <tr>
+                        <td>{{ history[1] }}</td>
+                        <td>{{ history[0] }}</td>
+                        <td>{{ history[2] }}</td>
+                        <td>{{ history[3] }}</td>
+                        <td>{{ history[4] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p>No forwarding history available for this document.</p>
+    {% endif %}
+</div>

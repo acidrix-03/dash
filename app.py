@@ -1,16 +1,19 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify, g
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import pandas as pd
 from io import BytesIO
 from flask_babel import Babel
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_file, jsonify
-from flask import jsonify
 import openpyxl
 import shutil
 import time
 import glob
+from datetime import datetime
+import pytz
+
+# Set Manila timezone
+LOCAL_TIMEZONE = pytz.timezone("Asia/Manila")
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'your_secret_key')
@@ -43,7 +46,7 @@ def init_db():
             conn.commit()
         print("Database initialized successfully")
     except sqlite3.DatabaseError as db_err:
-        print(f"Database error: {db_err}")
+        print(f"Database2 error: {db_err}")
     except Exception as e:
         print(f"General error: {e}")
 
@@ -120,11 +123,19 @@ def init_db():
             )''')
         print("Database initialized successfully")
     except sqlite3.DatabaseError as db_err:
-        print(f"Database error: {db_err}")
+        print(f"Database3 error: {db_err}")
     except Exception as e:
         print(f"General error: {e}")
 
+def init_db():
+    with sqlite3.connect('chat.db') as conn:
+        conn.execute('''CREATE TABLE IF NOT EXISTS messages (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            message TEXT NOT NULL
+                        )''')
+        conn.commit()
 import sqlite3
+
 
 def add_rejection_comment_column():
     with sqlite3.connect('documents.db') as conn:
@@ -135,9 +146,9 @@ def add_rejection_comment_column():
         conn.commit()
         print("Columns added successfully.")
 
-# Helper function to check allowed file extensions
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 # Routes
 @app.route('/add_column')
@@ -148,7 +159,12 @@ def add_column():
         return "Column 'recommending_approval' added successfully!"
     except sqlite3.OperationalError as e:
         return f"Error: {e}"
-    
+
+def get_db_connection():
+    conn = sqlite3.connect('users.db')
+    conn.row_factory = sqlite3.Row
+    return conn
+
 @app.route('/add_recommending_approval_column')
 def add_recommending_approval_column():
     try:
@@ -158,9 +174,54 @@ def add_recommending_approval_column():
     except sqlite3.OperationalError as e:
         return f"Error: {e}"
 
+@app.route('/search_user')
+def search_user():
+    query = request.args.get('query')
+    if query:
+        with sqlite3.connect('users.db') as conn:
+            user = conn.execute("SELECT * FROM users WHERE name = ? OR username = ?", (query, query)).fetchone()
+            return jsonify({"exists": bool(user)})
+    return jsonify({"exists": False})
+
+@app.route('/search_users', methods=['GET'])
+def search_users():
+    partial_username = request.args.get('q', '')  # Get the query parameter 'q' for the username
+    if partial_username:
+        conn = sqlite3.connect('users.db')
+        cursor = conn.cursor()
+        
+        # Query to find usernames that start with the user's input (use `LIKE` for partial matches)
+        cursor.execute("SELECT username FROM users WHERE username LIKE ?", (partial_username + '%',))
+        matching_usernames = [row[0] for row in cursor.fetchall()]
+        
+        conn.close()
+        return jsonify(matching_usernames)
+    return jsonify([])  # Return an empty list if no matches are found
+
+# Function to fetch office suggestions from the database
+def fetch_offices(query):
+    connection = sqlite3.connect('users.db')
+    cursor = connection.cursor()
+    
+    # Fetch offices matching the query
+    cursor.execute("SELECT DISTINCT office FROM users WHERE office LIKE ?", ('%' + query + '%',))
+    offices = [row[0] for row in cursor.fetchall()]
+    
+    connection.close()
+    return offices
+
+@app.route('/search_offices')
+def search_offices():
+    q = request.args.get('q', '')
+    offices = fetch_offices(q)
+    return jsonify(offices)
+
 @app.route('/')
 def index():
     return render_template('login.html')
+
+# Track logged-in users
+logged_in_users = set()
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -173,85 +234,20 @@ def login():
             session['username'] = user[2]
             session['position'] = user[5]
             session['role'] = user[4]
-
-            # Redirect based on user role
-            if user[4] == 'admin':
-                return redirect(url_for('admin_dashboard'))
-            elif user[4] == 'approver':
-                return redirect(url_for('approver_dashboard'))
-            elif user[4] == 'recommender':
-                return redirect(url_for('recommender_dashboard'))
-            elif user[4] == 'unit_head':
-                return redirect(url_for('unit_head_dashboard'))
-            else:
-                return redirect(url_for('user_dashboard'))
+            session['division'] = user[8]
+            session['office'] = user[6]
+            session['salary'] = user[7]
+            logged_in_users.add(user[0])  # Add user to logged-in users set
+            return redirect(url_for('user_dashboard'))
         else:
             flash('Invalid credentials')
             return redirect(url_for('index'))
 
-@app.route('/user_dashboard')
-def user_dashboard():
-    if 'user_id' not in session:
-        flash('Please log in first')
-        return redirect(url_for('index'))
-    
-    user_id = session['user_id']
-
-    # Fetch user details from users.db (e.g., office and salary)
-    with sqlite3.connect('users.db') as conn:
-        user_details = conn.execute('SELECT office, salary FROM users WHERE id = ?', (user_id,)).fetchone()
-
-    # Fetch applications from documents.db
-    with sqlite3.connect('documents.db') as conn:
-        # Fetch the CTO applications
-        cto_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, recommending_approval, approval_status, date_recommended FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
-        
-        # Fetch the leave applications
-        leave_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, leave_type, recommending_approval, approval_status, date_recommended FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
-        
-        # Fetch the travel authority applications
-        travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, destination, recommending_approval, approval_status FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
-
-        # Fetch the count of pending, recommended, and approved applications
-        pending_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Pending"', (user_id,)).fetchone()[0]
-        recommended_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Recommended"', (user_id,)).fetchone()[0]
-        approved_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Approved"', (user_id,)).fetchone()[0]
-    
-    stats = {
-        'pending': pending_count,
-        'recommended': recommended_count,
-        'approved': approved_count
-    }
-
-    # Pass all relevant data to the template
-    return render_template('user_dashboard.html', 
-                           user_details=user_details, 
-                           stats=stats, 
-                           cto_applications=cto_applications, 
-                           leave_applications=leave_applications, 
-                           travel_authorities=travel_authorities)
-
-
-def get_user_info_and_stats(user_id):
-    with sqlite3.connect('users.db') as conn:
-        user_details = conn.execute('SELECT office, salary FROM users WHERE id = ?', (user_id,)).fetchone()
-
-    with sqlite3.connect('documents.db') as conn:
-        pending_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Pending"', (user_id,)).fetchone()[0]
-        recommended_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Recommended"', (user_id,)).fetchone()[0]
-        approved_count = conn.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Approved"', (user_id,)).fetchone()[0]
-    
-    stats = {
-        'pending': pending_count,
-        'recommended': recommended_count,
-        'approved': approved_count
-    }
-    
-    return user_details, stats
-
-
 @app.route('/logout')
 def logout():
+    user_id = session.get('user_id')
+    if user_id in logged_in_users:
+        logged_in_users.remove(user_id)  # Remove user from logged-in users set
     session.clear()
     return redirect(url_for('index'))
 
@@ -262,10 +258,19 @@ def register():
         username = request.form['username']
         password = request.form['password']
         confirm_password = request.form['confirm_password']
+        
         if password != confirm_password:
             flash('Passwords do not match')
             return redirect(url_for('register'))
+
+        # Check if the name already exists in the database
         with sqlite3.connect('users.db') as conn:
+            user = conn.execute('SELECT * FROM users WHERE name = ?', (name,)).fetchone()
+            if user:
+                flash('Name already exists')
+                return redirect(url_for('register'))
+            
+            # Proceed with registration if name is unique
             try:
                 conn.execute('INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)', 
                              (name, username, generate_password_hash(password, method='pbkdf2:sha256'), 'user'))
@@ -286,6 +291,7 @@ def submit_document():
         name = request.form['name']
         division = request.form['division']
         document = request.files['document']
+        submission_date = datetime.now() 
         if document and allowed_file(document.filename):
             filename = secure_filename(document.filename)
             document.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
@@ -294,6 +300,7 @@ def submit_document():
             flash('Invalid file format')
         return redirect(url_for('submit_document'))
     return render_template('submit_document.html')
+
 
 @app.route('/admin_dashboard')
 def admin_dashboard():
@@ -322,6 +329,12 @@ def admin_dashboard():
         approved_leave_applications = conn.execute('SELECT COUNT(*) FROM leave_application WHERE approval_status = "Approved"').fetchone()[0]
         approved_travel_authorities = conn.execute('SELECT COUNT(*) FROM travel_authority WHERE approval_status = "Approved"').fetchone()[0]
 
+    with sqlite3.connect('document_tracker.db') as conn:
+        # Count documents
+        total_submitted = conn.execute('SELECT COUNT(*) FROM documents').fetchone()[0]
+        total_forwarded = conn.execute('SELECT COUNT(*) FROM forwarding_history').fetchone()[0]
+        total_received = conn.execute('SELECT COUNT(*) FROM receiving_history').fetchone()[0]
+
     return render_template('admin_dashboard.html', 
                            total_cto=total_cto_applications,
                            total_leave=total_leave_applications,
@@ -334,7 +347,11 @@ def admin_dashboard():
                            recommending_travel=recommending_travel_authorities,
                            approved_cto=approved_cto_applications,
                            approved_leave=approved_leave_applications,
-                           approved_travel=approved_travel_authorities)
+                           approved_travel=approved_travel_authorities,
+                           logged_in_users=len(logged_in_users),  # Pass the number of logged-in users
+                           total_submitted=total_submitted,
+                           total_forwarded=total_forwarded,
+                           total_received=total_received)  # Pass document tracker data
 
 @app.route('/view_users')
 def view_users():
@@ -345,9 +362,9 @@ def view_users():
     search = request.args.get('search', '')
     letter = request.args.get('letter', '')
     page = request.args.get('page', 1, type=int)  # Current page number (default is 1)
-    per_page = 20  # Number of users per page
+    per_page = 50
 
-    query = 'SELECT id, name, username, position, role FROM users WHERE 1=1'
+    query = 'SELECT id, name, username, position, role, office, division FROM users WHERE 1=1'
     params = []
 
     if search:
@@ -370,13 +387,13 @@ def view_users():
 
     return render_template('view_users.html', users=users, page=page, total_pages=total_pages, search=search, letter=letter)
 
-
 @app.route('/clear_data', methods=['POST'])
 def clear_data():
     admin_password = request.form['admin_password']
     with sqlite3.connect('users.db') as conn:
         admin_user = conn.execute('SELECT * FROM users WHERE username = ?', ('Admin',)).fetchone()
         if admin_user and check_password_hash(admin_user[3], admin_password):
+            # Clear data from documents.db
             with sqlite3.connect('documents.db') as doc_conn:
                 # Clear all application data
                 doc_conn.execute('DELETE FROM cto_application')
@@ -384,10 +401,15 @@ def clear_data():
                 doc_conn.execute('DELETE FROM travel_authority')
                 doc_conn.execute('DELETE FROM recommended_applications')
                 doc_conn.execute('DELETE FROM approved_applications')
-                doc_conn.commit()
+
+            # Clear data from document_tracker.db
+            with sqlite3.connect('document_tracker.db') as tracker_conn:
+                tracker_conn.execute('DELETE FROM documents')
+                tracker_conn.execute('DELETE FROM forwarding_history')
+                tracker_conn.commit()
             
-            # Clear all generated Excel files
-            output_dir = "path/to/output/directory"  # Update this to your actual output directory path
+            # Clear all generated Excel files in the static/generated_files folder
+            output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static', 'generated_files')
             if os.path.exists(output_dir):
                 # Delete all files in the output directory
                 for filename in os.listdir(output_dir):
@@ -403,6 +425,7 @@ def clear_data():
             flash('Invalid admin password', 'danger')
     
     return redirect(url_for('admin_dashboard'))
+
 
 @app.route('/change_position', methods=['GET', 'POST'])
 def change_position():
@@ -424,7 +447,6 @@ def change_position():
     # Check if 'position' exists in session
     current_position = session.get('position', 'Not set')  # Use default value if not set
     return render_template('change_position.html', current_position=current_position)
-
 
 @app.route('/export_excel')
 def export_excel():
@@ -489,7 +511,6 @@ def import_users_excel():
 
 @app.route('/cancel_application/<int:app_id>/<string:app_type>', methods=['POST'])
 def cancel_application(app_id, app_type):
-    print(f"Canceling application of type: {app_type}, ID: {app_id}")  # Debug line
     if 'user_id' not in session:
         return jsonify({'error': 'Access denied'}), 403
 
@@ -502,7 +523,6 @@ def cancel_application(app_id, app_type):
             elif app_type == 'travel':
                 conn.execute('DELETE FROM travel_authority WHERE id = ?', (app_id,))
             conn.commit()
-            print(f"Application of type {app_type} with ID {app_id} canceled successfully.")  # Debug line
         return jsonify({'success': 'Application cancelled successfully'})
     except Exception as e:
         print(f"Error occurred: {e}")
@@ -512,22 +532,45 @@ def cancel_application(app_id, app_type):
 
 @app.route('/reject_application/<int:app_id>', methods=['POST'])
 def reject_application(app_id):
-    rejection_comment = request.form.get('rejection_comment')
-    application_type = request.form.get('application_type')
-    # Fetch the application using the ID
-    application = Application.query.get(app_id)
-    
-    if application:
-        application.status = 'Rejected'
-        application.rejection_comment = rejection_comment
-        db.session.commit()
-        
-        # Notify the user via their dashboard
-        flash(f'Your application was rejected. Reason: {rejection_comment}', 'warning')
-        
-        return jsonify({'success': True})
-    return jsonify({'success': False, 'error': 'Application not found'})
+    if 'user_id' not in session or session.get('role') != 'approver':
+        return jsonify({'error': 'Access denied'}), 403
 
+    application_type = request.form['application_type']
+    rejection_comment = request.form['rejection_comment']  # Capture the rejection comment
+
+    with sqlite3.connect('documents.db') as conn:
+        # Fetch the application data and update the status based on the type
+        if application_type == 'cto':
+            application = conn.execute('SELECT name, position, days, start_date, end_date FROM cto_application WHERE id = ?', (app_id,)).fetchone()
+
+            name, position, days, start_date, end_date = application
+            conn.execute('UPDATE cto_application SET approval_status = "Rejected", rejection_comment = ? WHERE id = ?', (rejection_comment, app_id))
+            conn.execute('''INSERT INTO rejected_applications 
+                            (app_type, name, position, days, start_date, end_date, rejection_comment, date_rejected)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, date("now"))''', 
+                            (application_type, name, position, days, start_date, end_date, rejection_comment))
+
+        elif application_type == 'leave':
+            application = conn.execute('SELECT name, position, days, start_date, end_date FROM leave_application WHERE id = ?', (app_id,)).fetchone()
+            name, position, days, start_date, end_date = application
+            conn.execute('UPDATE leave_application SET approval_status = "Rejected", rejection_comment = ? WHERE id = ?', (rejection_comment, app_id))
+            conn.execute('''INSERT INTO rejected_applications 
+                            (app_type, name, position, days, start_date, end_date, rejection_comment, date_rejected)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, date("now"))''', 
+                            (application_type, name, position, days, start_date, end_date, rejection_comment))
+
+        elif application_type == 'travel_authority':
+            application = conn.execute('SELECT name, position, purpose, start_date, end_date, destination FROM travel_authority WHERE id = ?', (app_id,)).fetchone()
+            name, position, purpose, start_date, end_date, destination = application
+            conn.execute('UPDATE travel_authority SET approval_status = "Rejected", rejection_comment = ? WHERE id = ?', (rejection_comment, app_id))
+            conn.execute('''INSERT INTO rejected_applications 
+                            (app_type, name, position, purpose, start_date, end_date, destination, rejection_comment, date_rejected)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, date("now"))''', 
+                            (application_type, name, position, purpose, start_date, end_date, destination, rejection_comment))
+
+        conn.commit()
+
+    return jsonify({'success': True})
 
 
 @app.route('/cto_application', methods=['GET', 'POST'])
@@ -604,6 +647,8 @@ def submit_and_print_cto_application_excel():
     sheet['E11'] = end_date  
     sheet['E19'] = recommender  
     sheet['E20'] = recommender_position  
+    submission_date = datetime.now().strftime('%m-%d-%Y')
+    sheet['J22'] = submission_date
 
     # Ensure the 'generated_files' directory exists
     output_directory = os.path.join('static', 'generated_files')
@@ -714,6 +759,9 @@ def submit_and_print_leave_application_excel():
     sheet['C45'] = days
     sheet['C48'] = start_date
     sheet['D48'] = end_date
+    sheet['I59'] = recommender
+    submission_date = datetime.now().strftime('%m-%d-%Y')
+    sheet['C7'] = submission_date
 
     # Ensure the 'generated_files' directory exists
     output_directory = os.path.join('static', 'generated_files')
@@ -801,6 +849,9 @@ def submit_and_print_travel_authority_excel():
     sheet['D9'] = end_date
     sheet['B10'] = destination
 
+    submission_date = datetime.now().strftime('%m-%d-%Y')
+    sheet['D14'] = submission_date
+
     # Ensure the 'generated_files' directory exists
     output_directory = os.path.join('static', 'generated_files')
     if not os.path.exists(output_directory):
@@ -862,15 +913,6 @@ def change_password(user_id):
 
     return render_template('change_password.html', user_id=user_id)
 
-@app.route('/document_tracker')
-def document_tracker():
-    if 'user_id' not in session:
-        flash('Please log in first')
-        return redirect(url_for('index'))
-    
-    # If you're not querying the documents, just render the page
-    return render_template('document_tracker.html')
-
 @app.route('/delete_user/<int:user_id>', methods=['POST'])
 def delete_user(user_id):
     if 'user_id' not in session or session.get('role') != 'admin':
@@ -925,6 +967,94 @@ def change_password_user():
 
     return render_template('change_password_user.html')
 
+@app.route('/applications_dashboard', methods=['GET', 'POST'])
+def applications_dashboard():
+    user_id = session['user_id']  # Get the logged-in user's ID
+    
+    if request.method == 'POST':
+        # Retrieve form data
+        application_type = request.form['application_type']  # 'cto', 'leave', or 'travel'
+        name = request.form['name']
+        position = request.form['position']
+        days = request.form.get('days')
+        start_date = request.form['start_date']
+        end_date = request.form['end_date']
+        recommending_approval = request.form['recommending_approval']
+        
+        # Create a DataFrame based on the form data
+        data = {
+            'Name': [name],
+            'Position': [position],
+            'Days Applied': [days] if days else '',
+            'Start Date': [start_date],
+            'End Date': [end_date],
+            'Recommender': [recommending_approval]
+        }
+
+        # Additional fields for leave or travel applications
+        if application_type == 'leave':
+            leave_type = request.form['leave_type']
+            data['Leave Type'] = [leave_type]
+            flash('Leave Application submitted successfully!')
+        elif application_type == 'travel':
+            purpose = request.form['purpose']
+            destination = request.form['destination']
+            data['Purpose'] = [purpose]
+            data['Destination'] = [destination]
+            flash('Travel Authority submitted successfully!')
+        else:
+            flash('CTO Application submitted successfully!')
+
+        # Insert application into the database
+        with sqlite3.connect('documents.db') as conn:
+            if application_type == 'cto':
+                conn.execute('''INSERT INTO cto_application (name, position, days, start_date, end_date, user_id, recommending_approval)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, user_id, recommending_approval))
+            elif application_type == 'leave':
+                conn.execute('''INSERT INTO leave_application (name, position, days, start_date, end_date, user_id, recommending_approval)
+                                VALUES (?, ?, ?, ?, ?, ?, ?)''', (name, position, days, start_date, end_date, user_id, recommending_approval))
+            elif application_type == 'travel':
+                conn.execute('''INSERT INTO travel_authority (name, position, purpose, start_date, end_date, destination, user_id, recommending_approval)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?)''', (name, position, purpose, start_date, end_date, destination, user_id, recommending_approval))
+            conn.commit()
+
+        # Create an Excel file in memory
+        df = pd.DataFrame(data)
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name=application_type.capitalize())
+        
+        output.seek(0)  # Reset the pointer to the start of the stream
+
+        # Send the file as a download
+        filename = f"{application_type}_application_{name}.xlsx"
+        return send_file(output, as_attachment=True, download_name=filename, mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    
+    else:
+        # Fetch required data for GET request
+        with sqlite3.connect('documents.db') as conn:
+            conn.row_factory = sqlite3.Row
+            cto_application = conn.execute('SELECT * FROM cto_application WHERE user_id = ?', (user_id,)).fetchone()
+            leave_application = conn.execute('SELECT * FROM leave_application WHERE user_id = ?', (user_id,)).fetchone()
+            travel_authority = conn.execute('SELECT * FROM travel_authority WHERE user_id = ?', (user_id,)).fetchone()
+
+        with sqlite3.connect('users.db') as conn:
+            approving_users = [row[0] for row in conn.execute('SELECT username FROM users WHERE role IN ("unit_head", "recommender")').fetchall()]
+            user_details = conn.execute('SELECT office, salary FROM users WHERE id = ?', (user_id,)).fetchone()
+            if user_details is None:
+                flash('User details not found.', 'danger')
+                return redirect(url_for('user_dashboard'))
+
+        return render_template(
+            'applications_dashboard.html', 
+            approving_users=approving_users, 
+            user_details=user_details, 
+            cto_application=cto_application,
+            leave_application=leave_application,
+            travel_authority=travel_authority
+        )
+
+
 @app.route('/approver_dashboard')
 def approver_dashboard():
     if 'user_id' not in session or session.get('role') != 'approver':
@@ -935,9 +1065,9 @@ def approver_dashboard():
 
     # Fetch applications assigned for approval
     with sqlite3.connect('documents.db') as conn:
-        cto_applications = conn.execute('SELECT * FROM cto_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
-        leave_applications = conn.execute('SELECT * FROM leave_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
-        travel_authorities = conn.execute('SELECT * FROM travel_authority WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+        cto_applications = conn.execute('SELECT *, recommend_name FROM cto_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+        leave_applications = conn.execute('SELECT *, recommend_name FROM leave_application WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
+        travel_authorities = conn.execute('SELECT *, recommend_name FROM travel_authority WHERE recommending_approval = "Recommended" AND approval_status = "Pending"').fetchall()
 
     return render_template(
         'approver_dashboard.html',
@@ -945,6 +1075,7 @@ def approver_dashboard():
         leave_applications=leave_applications,
         travel_authorities=travel_authorities
     )
+
 
 
 @app.route('/approve_application/<int:app_id>', methods=['POST'])
@@ -1004,13 +1135,25 @@ def recommend_approval(app_id):
     with sqlite3.connect('documents.db') as conn:
         if application_type == 'cto':
             application = conn.execute('SELECT * FROM cto_application WHERE id = ?', (app_id,)).fetchone()
-            conn.execute('UPDATE cto_application SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+            conn.execute('''
+                UPDATE cto_application
+                SET recommending_approval = "Recommended", recommend_name = ?
+                WHERE id = ?
+            ''', (username, app_id))
         elif application_type == 'leave':
             application = conn.execute('SELECT * FROM leave_application WHERE id = ?', (app_id,)).fetchone()
-            conn.execute('UPDATE leave_application SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+            conn.execute('''
+                UPDATE leave_application
+                SET recommending_approval = "Recommended", recommend_name = ?
+                WHERE id = ?
+            ''', (username, app_id))
         elif application_type == 'travel_authority':
             application = conn.execute('SELECT * FROM travel_authority WHERE id = ?', (app_id,)).fetchone()
-            conn.execute('UPDATE travel_authority SET recommending_approval = "Recommended" WHERE id = ?', (app_id,))
+            conn.execute('''
+                UPDATE travel_authority
+                SET recommending_approval = "Recommended", recommend_name = ?
+                WHERE id = ?
+            ''', (username, app_id))
         else:
             return jsonify({'error': 'Invalid application type'}), 400
 
@@ -1033,7 +1176,36 @@ def recommend_approval(app_id):
             username  # The person recommending approval (e.g., the unit head or recommender)
         ))
         conn.commit()
+
     return jsonify({'success': True})
+
+def fetch_approver_dashboard_data():
+    conn = sqlite3.connect('your_database.db')
+    cursor = conn.cursor()
+
+    # Fetch CTO Applications
+    cursor.execute('''
+        SELECT id, name, position, days, start_date, end_date, recommending_approval
+        FROM cto_applications
+    ''')
+    cto_applications = cursor.fetchall()
+
+    # Fetch Leave Applications
+    cursor.execute('''
+        SELECT id, name, position, days, start_date, end_date, leave_type, status, recommending_approval
+        FROM leave_applications
+    ''')
+    leave_applications = cursor.fetchall()
+
+    # Fetch Travel Authorities
+    cursor.execute('''
+        SELECT id, name, position, purpose, destination, start_date, end_date, status, recommending_approval
+        FROM travel_authorities
+    ''')
+    travel_authorities = cursor.fetchall()
+
+    conn.close()
+    return cto_applications, leave_applications, travel_authorities
 
 @app.route('/dashboard')
 def dashboard():
@@ -1073,15 +1245,12 @@ def recommender_dashboard():
         cto_applications = conn.execute('''SELECT * FROM cto_application 
                                            WHERE recommending_approval = ? AND recommending_approval IS NOT NULL''', 
                                         (recommender_username,)).fetchall()
-        print(f"CTO Applications: {cto_applications}")  
         leave_applications = conn.execute('''SELECT * FROM leave_application 
                                              WHERE recommending_approval = ? AND recommending_approval IS NOT NULL''', 
                                           (recommender_username,)).fetchall()
-        print(f"Leave Applications: {leave_applications}")
         travel_authorities = conn.execute('''SELECT * FROM travel_authority 
                                              WHERE recommending_approval = ? AND recommending_approval IS NOT NULL''', 
                                           (recommender_username,)).fetchall()
-        print(f"Travel Authorities: {travel_authorities}") 
     return render_template('recommender_dashboard.html', 
                            cto_applications=cto_applications, 
                            leave_applications=leave_applications, 
@@ -1118,19 +1287,12 @@ def recommended_applications():
             FROM recommended_applications 
             WHERE app_type = "leave"
         ''').fetchall()
-
-        for app in leave_recommended_apps:
-            print(f"Leave Type from DB: {app[6]}")  # This will show you what leave_type values are coming from the database
-        
-
+ 
         # Apply leave type mapping
         leave_recommended_apps = [
             (app[0], app[1], app[2], app[3], app[4], app[5], LEAVE_TYPE_MAP.get(app[6], "Unknown Leave Type"), app[7])
             for app in leave_recommended_apps
-
         ]
-        # for app in cto_recommended_apps:
-        #     print(f"CTO Date Recommended from DB: {app}")  # This will show you what date_recommended values are coming from the database
 
         travel_recommended_apps = conn.execute('SELECT * FROM recommended_applications WHERE app_type = "travel_authority"').fetchall()
 
@@ -1192,7 +1354,6 @@ def recommended_head():
         return redirect(url_for('index'))
 
     unit_head_username = session['username']  # Logged-in unit head's username
-    print(f"Unit Head Username: {unit_head_username}")  # Debugging line
 
     with sqlite3.connect('documents.db') as conn:
         # Fetch recommended CTO applications by this unit head
@@ -1201,7 +1362,6 @@ def recommended_head():
             FROM recommended_applications 
             WHERE app_type = "cto" AND recommending_approval = ?
         ''', (unit_head_username,)).fetchall()
-        print(f"CTO Recommended Apps: {len(cto_recommended_apps)}")  # Count instead of full output for cleaner debugging
 
         # Fetch recommended Leave applications by this unit head
         leave_recommended_apps = conn.execute('''
@@ -1209,7 +1369,6 @@ def recommended_head():
             FROM recommended_applications 
             WHERE app_type = "leave" AND recommending_approval = ?
         ''', (unit_head_username,)).fetchall()
-        print(f"Leave Recommended Apps: {len(leave_recommended_apps)}")  # Cleaner output
 
         # Fetch recommended Travel Authority applications by this unit head
         travel_recommended_apps = conn.execute('''
@@ -1217,11 +1376,6 @@ def recommended_head():
             FROM recommended_applications 
             WHERE app_type = "travel_authority" AND recommending_approval = ?
         ''', (unit_head_username,)).fetchall()
-        print(f"Travel Recommended Apps: {len(travel_recommended_apps)}")  # Cleaner output
-
-    # Check if data is fetched and returned correctly
-    if not cto_recommended_apps and not leave_recommended_apps and not travel_recommended_apps:
-        flash("No recommended applications found.")
     
     return render_template('recommended_head.html', 
                            cto_recommended_apps=cto_recommended_apps, 
@@ -1233,13 +1387,15 @@ def edit_user(user_id):
     if request.method == 'POST':
         name = request.form['name']
         username = request.form['username']
-        position = request.form['position']  # Capture the updated position
+        position = request.form['position']
+        division = request.form['division']  # New field
+        office = request.form['office']      # New field
         role = request.form['role']
         
         # Update the user details including the position
         with sqlite3.connect('users.db') as conn:
-            conn.execute('UPDATE users SET name = ?, username = ?, position = ?, role = ? WHERE id = ?', 
-                         (name, username, position, role, user_id))
+            conn.execute('UPDATE users SET name = ?, username = ?, position = ?, division = ?, office = ?, role = ? WHERE id = ?', 
+                         (name, username, position, division, office, role, user_id))
             conn.commit()
 
         # If the logged-in user is being edited, update the session position
@@ -1254,12 +1410,6 @@ def edit_user(user_id):
         user = conn.execute('SELECT * FROM users WHERE id = ?', (user_id,)).fetchone()
 
     return render_template('edit_user.html', user=user)
-
-import os
-import openpyxl
-from openpyxl.drawing.image import Image
-from flask import send_file
-import sqlite3
 
 def add_office_and_salary_columns():
     with sqlite3.connect('users.db') as conn:
@@ -1279,52 +1429,68 @@ def add_office_and_salary_columns():
 
 @app.route('/update_user_info', methods=['POST'])
 def update_user_info():
-    # Check if the user is logged in
+    # Check if user is logged in
     if 'user_id' not in session:
         flash('Please log in first')
         return redirect(url_for('index'))
-    
+
     user_id = session['user_id']
-    
+
     # Capture the updated information from the form
-    office = request.form['office']
-    salary = request.form['salary']
-    position = request.form['position']
+    office = request.form.get('office')
+    salary = request.form.get('salary')
+    position = request.form.get('position')
+    division = request.form.get('division')
 
-    # Update the user's office, salary, and position in the database
-    with sqlite3.connect('users.db') as conn:
-        conn.execute('UPDATE users SET office = ?, salary = ?, position = ? WHERE id = ?', 
-                     (office, salary, position, user_id))
-        conn.commit()
+    try:
+        # Connect to the database and update user information
+        with sqlite3.connect('users.db') as conn:
+            cursor = conn.cursor()  # Initialize the cursor without using 'with'
+            cursor.execute('''
+                UPDATE users 
+                SET office = ?, salary = ?, position = ?, division = ? 
+                WHERE id = ?''', (office, salary, position, division, user_id))
+            conn.commit()
 
-    # Optionally, update the session variables to reflect the changes
-    session['position'] = position
-    session['office'] = office  # Add this line to keep the session updated
-    session['salary'] = salary   # Add this line to keep the session updated
+        # Update session variables to reflect the changes immediately in the UI
+        session.update({
+            'office': office,
+            'salary': salary,
+            'position': position,
+            'division': division
+        })
 
-    flash('User information updated successfully!')
+        flash('User information updated successfully!')
 
-    # Fetch updated user details and statistics
-    user_details, stats = get_user_info_and_stats(user_id)
+    except Exception as e:
+        flash(f'Failed to update user information: {e}')
+        return redirect(url_for('user_dashboard'))  # Redirect back to dashboard on failure
 
-    # Fetch applications from documents.db
-    with sqlite3.connect('documents.db') as conn:
-        # Fetch the CTO applications
-        cto_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, recommending_approval, approval_status, date_recommended FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
-        
-        # Fetch the leave applications
-        leave_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, leave_type, recommending_approval, approval_status, date_recommended FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
-        
-        # Fetch the travel authority applications
-        travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, destination, recommending_approval, approval_status FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
+    # Fetch updated user details and applications for the dashboard view
+    user_details = fetch_user_details(user_id)
+    cto_applications, leave_applications, travel_authorities = fetch_applications(user_id)
 
-    # Pass updated user details and application data to the dashboard template
+    # Render the dashboard with updated information
     return render_template('user_dashboard.html', 
                            user_details=user_details, 
-                           stats=stats, 
                            cto_applications=cto_applications, 
                            leave_applications=leave_applications, 
                            travel_authorities=travel_authorities)
+
+
+
+def fetch_user_details(user_id):
+    with sqlite3.connect('users.db') as conn:
+        return conn.execute('SELECT office, salary, position, division FROM users WHERE id = ?', (user_id,)).fetchone()
+
+def fetch_applications(user_id):
+    with sqlite3.connect('documents.db') as conn:
+        cto_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, recommending_approval, approval_status, date_recommended FROM cto_application WHERE user_id = ?', (user_id,)).fetchall()
+        leave_applications = conn.execute('SELECT id, name, position, days, start_date, end_date, leave_type, recommending_approval, approval_status, date_recommended FROM leave_application WHERE user_id = ?', (user_id,)).fetchall()
+        travel_authorities = conn.execute('SELECT id, name, position, purpose, start_date, end_date, destination, recommending_approval, approval_status FROM travel_authority WHERE user_id = ?', (user_id,)).fetchall()
+    
+    return cto_applications, leave_applications, travel_authorities
+
 
 @app.route('/download_application/<string:app_type>/<int:app_id>', methods=['GET'])
 def download_application(app_type, app_id):
@@ -1348,6 +1514,572 @@ def download_application(app_type, app_id):
     else:
         flash('Application file not found')
         return redirect(url_for('user_dashboard'))
+
+# Document Tracker Codes --  # Document Tracker Codes  --  # Document Tracker Codes  --  # Document Tracker Codes  --  # Document Tracker Codes  --  # Document Tracker Codes  
+# Document Tracker Codes --  # Document Tracker Codes  --  # Document Tracker Codes  --  # Document Tracker Codes  --  # Document Tracker Codes  --  # Document Tracker Codes 
+# Document Tracker Codes --  # Document Tracker Codes  --  # Document Tracker Codes  --  # Document Tracker Codes  --  # Document Tracker Codes  --  # Document Tracker Codes 
+
+def user_exists(username):
+    with sqlite3.connect('users.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1 FROM users WHERE username = ?", (username,))
+        return cursor.fetchone() is not None
+
+def convert_to_localtime(utc_dt):
+    """Convert UTC datetime to Manila timezone."""
+    return utc_dt.replace(tzinfo=pytz.UTC).astimezone(LOCAL_TIMEZONE)
+
+@app.route('/user_dashboard', methods=['GET', 'POST'])
+def user_dashboard():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    
+    user_id = session['user_id']
+    username = session.get('username')
+    
+    if request.method == 'POST':
+        # Update session variables from form data
+        session['position'] = request.form['position']
+        session['division'] = request.form['division']
+        session['office'] = request.form['office']
+        session['salary'] = request.form['salary']
+        return redirect(url_for('user_dashboard'))
+
+    # Fetch user details and statistics
+    user_details, stats = get_user_info_and_stats(user_id)
+    
+    # Fetch applications (CTO, Leave, Travel Authority) from `documents.db`
+    with sqlite3.connect('documents.db') as conn:
+        cursor = conn.cursor()
+        
+        # CTO Applications
+        cursor.execute('''SELECT id, name, position, days, start_date, end_date, recommending_approval, 
+                          approval_status, rejection_comment, date_recommended 
+                          FROM cto_application WHERE user_id = ?''', (user_id,))
+        cto_applications = cursor.fetchall()
+        
+        # Leave Applications
+        cursor.execute('''SELECT id, name, position, days, start_date, end_date, leave_type, recommending_approval, 
+                          approval_status, rejection_comment, date_recommended 
+                          FROM leave_application WHERE user_id = ?''', (user_id,))
+        leave_applications = cursor.fetchall()
+        
+        # Travel Authority Applications
+        cursor.execute('''SELECT id, name, position, purpose, start_date, end_date, destination, 
+                          recommending_approval, approval_status, rejection_comment 
+                          FROM travel_authority WHERE user_id = ?''', (user_id,))
+        travel_authorities = cursor.fetchall()
+    
+    # Fetch submitted and received documents from `document_tracker.db`
+    with sqlite3.connect('document_tracker.db') as conn:
+        cursor = conn.cursor()
+        
+        # Documents submitted by the user
+        cursor.execute('''
+            SELECT id, document_type, forwarded_to, office_forwarded_to, details, submission_date, received 
+            FROM documents 
+            WHERE submitted_by = ? AND is_archived = 0
+        ''', (username,))
+        submitted_documents = cursor.fetchall()
+
+        # Fetch forwarding history and convert timestamps to Manila time
+        forwarding_histories = {}
+        manila_tz = pytz.timezone('Asia/Manila')
+        
+        for doc in submitted_documents:
+            document_id = doc[0]
+            cursor.execute(
+                '''SELECT forwarded_by, forwarded_to, comments, forwarded_at, date_received 
+                   FROM forwarding_history 
+                   WHERE document_id = ? ORDER BY forwarded_at DESC''', 
+                (document_id,)
+            )
+            history_records = cursor.fetchall()
+
+            # Convert timestamps to Manila time
+            converted_history = []
+            for record in history_records:
+                forwarded_by, forwarded_to, comments, forwarded_at, date_received = record
+                utc_time = datetime.fromisoformat(forwarded_at).replace(tzinfo=pytz.utc)
+                manila_time = utc_time.astimezone(manila_tz).strftime('%Y-%m-%d %H:%M:%S')
+                date_received_str = date_received if date_received else 'N/A'
+                converted_history.append((forwarded_by, forwarded_to, comments, manila_time, date_received_str))         
+
+            forwarding_histories[document_id] = converted_history
+
+        # Fetch receiving history and convert timestamps to Manila time
+        receiving_histories = {}
+        cursor.execute("SELECT document_id, received_by, office_received, date_received FROM receiving_history")
+        receiving_records = cursor.fetchall()
+        
+        for record in receiving_records:
+            document_id, received_by, office_received, date_received = record
+            if date_received:
+                date_received = datetime.fromisoformat(date_received).astimezone(manila_tz).strftime('%Y-%m-%d %H:%M:%S')
+            
+            if document_id not in receiving_histories:
+                receiving_histories[document_id] = []
+            receiving_histories[document_id].append((received_by, office_received, date_received))
+
+    # Fetch the office info for each `forwarded_to` entry in submitted_documents
+    forwarded_to_offices = {}
+    with sqlite3.connect('users.db') as users_conn:
+        users_cursor = users_conn.cursor()
+        forwarded_to_usernames = [doc[2] for doc in submitted_documents]  # Collect all "forwarded_to" usernames
+        placeholders = ','.join('?' * len(forwarded_to_usernames))
+        
+        if forwarded_to_usernames:  # Only query if there are usernames
+            users_cursor.execute(f'''SELECT username, office FROM users WHERE username IN ({placeholders})''', 
+                                 forwarded_to_usernames)
+            
+            # Map each username to their office
+            forwarded_to_offices = {row[0]: row[1] for row in users_cursor.fetchall()}
+
+    # Fetch documents forwarded to the user (including the 'received' status)
+    with sqlite3.connect('document_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''SELECT id, name, position, division, office, document_type, submitted_by, details, received, comments 
+                        FROM documents WHERE forwarded_to = ? AND is_archived = 0''', (username,))
+        received_documents = cursor.fetchall()
+        
+    # Determine office options based on selected division
+    division = session.get('division', '')
+    officeOptions = {
+        'OSDS': ["Accounting", "Admin", "Budget", "ICT", "Legal", "Office of the ASDS", "Office of the SDS", "Payroll", "Personnel", "Records"],
+        'SGOD': ["Education Facilities", "Health", "HRD", "Planning & Research", "SGOD", "SMME", "SMN"],
+        'CID': ["ALS", "CID", "LR", "PSDS"]
+    }.get(division, [])
+
+    # Render the template with all required data
+    return render_template(
+        'user_dashboard.html',
+        user_details=user_details,
+        stats=stats,
+        cto_applications=cto_applications,
+        leave_applications=leave_applications,
+        travel_authorities=travel_authorities,
+        submitted_documents=submitted_documents,
+        received_documents=received_documents,
+        forwarding_histories=forwarding_histories,
+        receiving_histories=receiving_histories,  # Add receiving_histories
+        forwarded_to_offices=forwarded_to_offices,
+        officeOptions=officeOptions
+    )
+
+def get_db():
+    db = getattr(g, '_database', None)
+    if db is None:
+        db = g._database = sqlite3.connect('document_tracker.db')
+    return db
+
+# Close database connection after request
+@app.teardown_appcontext
+def close_connection(exception):
+    db = getattr(g, '_database', None)
+    if db is not None:
+        db.close()
+
+@app.route('/document_tracker')
+def document_tracker():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    db = get_db()
+    cursor = db.cursor()
+    
+    # Fetch submitted documents by the user, including office_forwarded_to
+    cursor.execute("""
+        SELECT id, name, document_type, status, date_submitted, office_forwarded_to 
+        FROM documents 
+        WHERE submitted_by = ?
+    """, (session['user_id'],))
+    submitted_documents = cursor.fetchall()
+
+    
+    # Fetch forwarded documents to the user
+    cursor.execute("""
+        SELECT id, name, document_type, status, date_received 
+        FROM documents 
+        WHERE forwarded_to = ?
+    """, (session['user_id'],))
+    forwarded_documents = cursor.fetchall()
+
+    return render_template('document_tracker.html', submitted_documents=submitted_documents, forwarded_documents=forwarded_documents)
+
+
+@app.route('/submit_document_tracker', methods=['POST'])
+def submit_document_tracker():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    
+    user_id = session['user_id']
+    username = session.get('username')  # Retrieve username if stored in the session
+    
+    # Retrieve form data
+    name = request.form.get('name')
+    position = request.form.get('position')
+    division = request.form.get('division')
+    office = request.form.get('office')
+    document_type = request.form.get('document_type')
+    forwarded_to = request.form.get('forwarded_to')
+    office_forwarded_to = request.form.get('office_forwarded_to')
+    details = request.form.get('details', '')  # Using get to avoid KeyError if not provided
+    submission_date = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
+
+    # Check if the 'forwarded_to' user exists in users.db
+    try:
+        with sqlite3.connect('users.db') as users_conn:
+            users_cursor = users_conn.cursor()
+            users_cursor.execute("SELECT 1 FROM users WHERE username = ?", (forwarded_to,))
+            user_exists = users_cursor.fetchone()
+
+        if not user_exists:
+            flash("The 'Forwarded to' user does not exist. Please select from the Suggestions.", "error")
+            return redirect(url_for('document_tracker'))  # Redirect to the correct page
+
+        # Save to the document_tracker.db database
+        with sqlite3.connect('document_tracker.db') as conn:
+            conn.execute(
+                '''INSERT INTO documents (name, position, division, office, document_type, forwarded_to, office_forwarded_to, details, submitted_by, submission_date)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', 
+                (name, position, division, office, document_type, forwarded_to, office_forwarded_to, details, username, submission_date)
+            )
+            conn.commit()
+
+        flash('Document submitted successfully')
+        return redirect(url_for('user_dashboard'))
+
+    except sqlite3.Error as e:
+        flash(f"Database4 error: {e}", "error")
+        return redirect(url_for('document_tracker'))
+
+
+def get_user_info_and_stats(user_id):
+    try:
+        with sqlite3.connect('users.db') as conn:
+            cursor = conn.cursor()
+            user_details = cursor.execute('SELECT office, salary FROM users WHERE id = ?', (user_id,)).fetchone()
+            if user_details is None:
+                raise ValueError(f"No user found with id {user_id}")
+
+        with sqlite3.connect('documents.db') as conn:
+            cursor = conn.cursor()
+            # Count of pending, recommended, and approved applications
+            pending_count = cursor.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Pending"', (user_id,)).fetchone()[0]
+            recommended_count = cursor.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Recommended"', (user_id,)).fetchone()[0]
+            approved_count = cursor.execute('SELECT COUNT(*) FROM leave_application WHERE user_id = ? AND approval_status = "Approved"', (user_id,)).fetchone()[0]
+            
+            stats = {
+                'pending': pending_count,
+                'recommended': recommended_count,
+                'approved': approved_count
+            }
+
+        return user_details, stats
+
+    except sqlite3.Error as e:
+        print(f"Database1 error: {e}")
+        return None, None
+    except Exception as e:
+        print(f"Error: {e}")
+        return None, None
+
+@app.route('/forward_document_page/<int:document_id>', methods=['GET', 'POST'])
+def forward_document_page(document_id):
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    
+    # Fetch document details from the database
+    with sqlite3.connect('document_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT document_type, name, division, submission_date, details FROM documents WHERE id = ?", (document_id,))
+        document_details = cursor.fetchone()
+        
+    if not document_details:
+        flash('Document not found', 'error')
+        return redirect(url_for('user_dashboard'))
+    
+    if request.method == 'POST':
+        forwarded_to = request.form.get('forwarded_to')
+        comments = request.form.get('comments')
+
+        # Check if the 'forwarded_to' user exists
+        if not user_exists(forwarded_to):
+            flash("The 'Forwarded to' user does not exist. Please select from the suggestions.", "error")
+            return redirect(url_for('forward_document_page', document_id=document_id))
+        
+        with sqlite3.connect('document_tracker.db') as conn:
+            cursor = conn.cursor()
+            cursor.execute('''UPDATE documents SET forwarded_to = ?, comments = ? WHERE id = ?''', (forwarded_to, comments, document_id))
+            conn.commit()
+        
+        flash('Document forwarded successfully')
+        return redirect(url_for('user_dashboard'))
+    
+    return render_template('forward_document.html', document_id=document_id, document_details=document_details)
+
+
+@app.route('/forward_document', methods=['POST'])
+def forward_document():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    document_id = request.form.get('document_id')
+    forwarded_to = request.form.get('forwarded_to')
+    
+    # Check if forwarded_to is retrieved correctly and if user exists
+    if not forwarded_to or not user_exists(forwarded_to):
+        flash("The 'Forwarded to' user does not exist. Please select from the suggestions.", "error")
+        return redirect(url_for('forward_document_page', document_id=document_id))
+
+    return redirect(url_for('forward_document_page', document_id=document_id))
+
+
+@app.route('/submit_forward_document', methods=['POST'])
+def submit_forward_document():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    document_id = request.form['document_id']
+    forwarded_to = request.form.get('forwarded_to')  # The new recipient of the document
+    forwarded_by = session.get('username')
+    comments = request.form.get('comments', '')  # Optional comments for forwarding
+    forwarded_at = datetime.now(pytz.timezone('Asia/Manila')).strftime('%Y-%m-%d %H:%M:%S')
+
+    with sqlite3.connect('document_tracker.db') as conn:
+        cursor = conn.cursor()
+
+        # Insert into forwarding history
+        cursor.execute(
+            '''INSERT INTO forwarding_history (document_id, forwarded_by, forwarded_to, comments, forwarded_at)
+               VALUES (?, ?, ?, ?, ?)''',
+            (document_id, forwarded_by, forwarded_to, comments, forwarded_at)
+        )
+
+        # Mark the document as not received for the new recipient
+        cursor.execute(
+            '''UPDATE documents
+               SET received = 0, forwarded_to = ?
+               WHERE id = ?''',
+            (forwarded_to, document_id)
+        )
+
+        conn.commit()
+
+    return redirect(url_for('user_dashboard'))
+
+# Define the relative path to the database
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, 'document_tracker.db')
+
+@app.route('/delete_document/<int:document_id>', methods=['POST'])
+def delete_document(document_id):
+    try:
+        # Connect to the database
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+
+        # Update the document entry to mark it as archived
+        cursor.execute("UPDATE documents SET is_archived = 1 WHERE id = ?", (document_id,))
+
+        # Commit the transaction if a row was updated
+        if cursor.rowcount > 0:
+            conn.commit()
+            success = True
+        else:
+            conn.rollback()
+            success = False
+
+        # Close the connection
+        conn.close()
+
+        return jsonify(success=success)
+    
+    except Exception as e:
+        conn.rollback()
+        return jsonify(success=False, error=str(e))
+
+
+def get_db_connection(db_name='document_tracker.db'):
+    conn = sqlite3.connect(db_name)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+@app.route('/receive_document', methods=['POST'])
+def receive_document():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    document_id = request.form['document_id']
+    received_by = session.get('username')  # Or get from form data
+    office_received = session.get('office')  # Or get from form data
+    date_received = datetime.now(pytz.timezone('Asia/Manila')).strftime('%Y-%m-%d %H:%M:%S')  # Use Manila time
+
+    with sqlite3.connect('document_tracker.db') as conn:
+        cursor = conn.cursor()
+
+        # Check if the document has already been received
+        cursor.execute('''SELECT received FROM documents WHERE id = ?''', (document_id,))
+        document = cursor.fetchone()
+
+        if document and document[0] == 1:  # Document has already been received
+            return jsonify({"status": "already_received"})
+
+        # Insert receiving record
+        cursor.execute(
+            '''INSERT INTO receiving_history (document_id, received_by, office_received, date_received)
+               VALUES (?, ?, ?, ?)''',
+            (document_id, received_by, office_received, date_received)
+        )
+
+        # Mark the document as received
+        cursor.execute(
+            '''UPDATE documents
+               SET received = 1
+               WHERE id = ?''',
+            (document_id,)
+        )
+        conn.commit()
+    return jsonify({"status": "success"})
+    
+@app.route('/document_history/<int:document_id>')
+def document_history(document_id):
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    # Connect to the document tracker database
+    with sqlite3.connect('document_tracker.db') as conn:
+        cursor = conn.cursor()
+
+        # Fetch document details using the correct column name
+        cursor.execute('''SELECT document_type, name, division, submission_date, details
+                          FROM documents
+                          WHERE id = ?''', (document_id,))
+        document_details = cursor.fetchone()
+
+        # Fetch receiving history for the document
+        cursor.execute('''SELECT received_by, office_received, date_received
+                          FROM receiving_history
+                          WHERE document_id = ?
+                          ORDER BY date_received DESC''', (document_id,))
+        receiving_history = cursor.fetchall()
+
+        # Fetch forwarding history for the document
+        cursor.execute('''SELECT forwarded_by, forwarded_to, comments, forwarded_at
+                          FROM forwarding_history
+                          WHERE document_id = ?
+                          ORDER BY forwarded_at DESC''', (document_id,))
+        forwarding_history = cursor.fetchall()
+
+    # Render the template with the fetched data
+    return render_template(
+        'document_history.html',
+        document_id=document_id,
+        document_details=document_details,
+        receiving_history=receiving_history,
+        forwarding_history=forwarding_history
+    )
+
+@app.route('/print_documents', methods=['GET'])
+def print_documents():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+    
+    username = session.get('username')
+
+    # Fetch received documents with the date they were received
+    with sqlite3.connect('document_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''SELECT d.id, d.name, d.position, d.division, d.office, d.document_type, d.details, 
+                                 d.submitted_by, rh.date_received
+                          FROM documents d
+                          JOIN receiving_history rh ON d.id = rh.document_id
+                          WHERE rh.received_by = ?''', (username,))
+        received_documents = cursor.fetchall()
+
+    # Fetch forwarded documents with the timestamp of when they were forwarded
+    with sqlite3.connect('document_tracker.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''SELECT d.id, d.name, d.position, d.division, d.office, d.document_type, d.details, 
+                                 fh.forwarded_to, fh.forwarded_at
+                          FROM documents d
+                          JOIN forwarding_history fh ON d.id = fh.document_id
+                          WHERE fh.forwarded_by = ?''', (username,))
+        forwarded_documents = cursor.fetchall()
+
+    return render_template(
+        'print_documents.html',
+        received_documents=received_documents,
+        forwarded_documents=forwarded_documents
+    )
+
+# BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT 
+# BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT 
+# BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT 
+
+@app.route('/bac_proc', methods=['GET', 'POST'])
+def bac_proc():
+    if request.method == 'POST':
+        # Handle form submission
+        bac_document_type = request.form['bac_document_type']
+        bac_details = request.form['bac_details']
+        supplier = request.form.get('supplier')
+        # Save data to the database
+        flash("Document submitted successfully!", "success")
+        return redirect(url_for('bac_proc'))
+    return render_template('bac_proc.html')
+
+@app.route('/submit_bac_proc', methods=['POST'])
+def submit_bac_proc():
+    # Logic for handling the form submission
+    pass
+
+@app.route('/clear_documents_db', methods=['POST'])
+def clear_documents_db():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    try:
+        with sqlite3.connect('documents.db') as conn:
+            conn.execute('DELETE FROM cto_application')
+            conn.execute('DELETE FROM leave_application')
+            conn.execute('DELETE FROM travel_authority')
+            conn.execute('DELETE FROM recommended_applications')
+            conn.execute('DELETE FROM approved_applications')
+            conn.commit()
+        flash('documents.db cleared successfully', 'success')
+    except Exception as e:
+        flash(f'Error clearing documents.db: {e}', 'danger')
+
+    return redirect(url_for('admin_dashboard'))
+
+@app.route('/clear_document_tracker_db', methods=['POST'])
+def clear_document_tracker_db():
+    if 'user_id' not in session or session.get('role') != 'admin':
+        flash('Access denied')
+        return redirect(url_for('index'))
+
+    try:
+        with sqlite3.connect('document_tracker.db') as conn:
+            conn.execute('DELETE FROM documents')
+            conn.execute('DELETE FROM forwarding_history')
+            conn.execute('DELETE FROM receiving_history')
+            conn.commit()
+        flash('document_tracker.db cleared successfully', 'success')
+    except Exception as e:
+        flash(f'Error clearing document_tracker.db: {e}', 'danger')
+
+    return redirect(url_for('admin_dashboard'))
 
 
 if __name__ == '__main__':

@@ -1,5 +1,12 @@
-import sqlite3
-with sqlite3.connect('users.db') as conn:
-    user_data = conn.execute('SELECT id, username, position, office, salary FROM users WHERE id = ?', 
-                              (user_id,)).fetchone()
-    print(f"User Data After Update: {user_data}")  # Check if the data reflects the update
+from app import db  # Replace `app` with your Flask app module
+conn = db.connect()
+cursor = conn.cursor()
+
+cursor.execute('''
+    SELECT id, name, position, division, office, document_type, submitted_by, details, received, comments
+    FROM documents
+    WHERE is_archived = 0;
+''')
+print(cursor.fetchall())
+
+conn.close()

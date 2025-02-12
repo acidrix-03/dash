@@ -3,20 +3,24 @@
 <div class="container mt-5">
     <h2 class="text-center mb-4">Approved Applications</h2>
 
+    <!-- Global Search Bar -->
+    <div class="mb-4">
+        <input type="text" id="globalSearch" onkeyup="filterAllTables()" class="form-control" placeholder="Search for applications...">
+    </div>
+
     <!-- CTO Applications -->
     <div class="application-section">
         <h3 class="section-title">CTO Applications</h3>
-        <input type="text" id="ctoInput" onkeyup="filterTable('ctoTable', 'ctoInput')" class="form-control mb-3" placeholder="Search for names..">
         <table class="table table-striped table-bordered" id="ctoTable">
             <thead class="thead-dark">
                 <tr>
-                    <th onclick="sortTable('ctoTable', 0)" class="sortable">ID</th>
-                    <th onclick="sortTable('ctoTable', 1)" class="sortable">Name</th>
-                    <th onclick="sortTable('ctoTable', 2)" class="sortable">Position</th>
-                    <th onclick="sortTable('ctoTable', 3)" class="sortable">Days</th>
-                    <th onclick="sortTable('ctoTable', 4)" class="sortable">Start Date</th>
-                    <th onclick="sortTable('ctoTable', 5)" class="sortable">End Date</th>
-                    <th onclick="sortTable('ctoTable', 6)" class="sortable">Date Approved</th>
+                    <th class="sortable">ID</th>
+                    <th class="sortable">Name</th>
+                    <th class="sortable">Position</th>
+                    <th class="sortable">Days</th>
+                    <th class="sortable">Start Date</th>
+                    <th class="sortable">End Date</th>
+                    <th class="sortable" data-sort="date">Date Approved</th>
                 </tr>
             </thead>
             <tbody>
@@ -28,7 +32,7 @@
                     <td>{{ app[4] }}</td>
                     <td>{{ app[5] }}</td>
                     <td>{{ app[6] }}</td>
-                    <td>{{ app[9] }}</td>
+                    <td data-date="{{ app[9] }}">{{ app[9] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -39,17 +43,16 @@
     <!-- Leave Applications -->
     <div class="application-section mt-4">
         <h3 class="section-title">Leave Applications</h3>
-        <input type="text" id="leaveInput" onkeyup="filterTable('leaveTable', 'leaveInput')" class="form-control mb-3" placeholder="Search for names..">
         <table class="table table-striped table-bordered" id="leaveTable">
             <thead class="thead-dark">
                 <tr>
-                    <th onclick="sortTable('leaveTable', 0)" class="sortable">ID</th>
-                    <th onclick="sortTable('leaveTable', 1)" class="sortable">Name</th>
-                    <th onclick="sortTable('leaveTable', 2)" class="sortable">Position</th>
-                    <th onclick="sortTable('leaveTable', 3)" class="sortable">Days</th>
-                    <th onclick="sortTable('leaveTable', 4)" class="sortable">Start Date</th>
-                    <th onclick="sortTable('leaveTable', 5)" class="sortable">End Date</th>
-                    <th onclick="sortTable('leaveTable', 6)" class="sortable">Date Approved</th>
+                    <th class="sortable">ID</th>
+                    <th class="sortable">Name</th>
+                    <th class="sortable">Position</th>
+                    <th class="sortable">Days</th>
+                    <th class="sortable">Start Date</th>
+                    <th class="sortable">End Date</th>
+                    <th class="sortable" data-sort="date">Date Approved</th>
                 </tr>
             </thead>
             <tbody>
@@ -61,7 +64,7 @@
                     <td>{{ app[4] }}</td>
                     <td>{{ app[5] }}</td>
                     <td>{{ app[6] }}</td>
-                    <td>{{ app[9] }}</td>
+                    <td data-date="{{ app[9] }}">{{ app[9] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -72,18 +75,17 @@
     <!-- Travel Authorities -->
     <div class="application-section mt-4">
         <h3 class="section-title">Travel Authorities</h3>
-        <input type="text" id="travelInput" onkeyup="filterTable('travelTable', 'travelInput')" class="form-control mb-3" placeholder="Search for names..">
         <table class="table table-striped table-bordered" id="travelTable">
             <thead class="thead-dark">
                 <tr>
-                    <th onclick="sortTable('travelTable', 0)" class="sortable">ID</th>
-                    <th onclick="sortTable('travelTable', 1)" class="sortable">Name</th>
-                    <th onclick="sortTable('travelTable', 2)" class="sortable">Position</th>
-                    <th onclick="sortTable('travelTable', 3)" class="sortable">Start Date</th>
-                    <th onclick="sortTable('travelTable', 4)" class="sortable">End Date</th>
-                    <th onclick="sortTable('travelTable', 5)" class="sortable">Destination</th>
-                    <th onclick="sortTable('travelTable', 6)" class="sortable">Purpose</th>
-                    <th onclick="sortTable('travelTable', 7)" class="sortable">Date Approved</th>
+                    <th class="sortable">ID</th>
+                    <th class="sortable">Name</th>
+                    <th class="sortable">Position</th>
+                    <th class="sortable">Start Date</th>
+                    <th class="sortable">End Date</th>
+                    <th class="sortable">Destination</th>
+                    <th class="sortable">Purpose</th>
+                    <th class="sortable" data-sort="date">Date Approved</th>
                 </tr>
             </thead>
             <tbody>
@@ -96,7 +98,7 @@
                     <td>{{ app[6] }}</td>
                     <td>{{ app[7] }}</td>
                     <td>{{ app[8] }}</td>
-                    <td>{{ app[9] }}</td>
+                    <td data-date="{{ app[9] }}">{{ app[9] }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -111,7 +113,108 @@
 
 <!-- Pagination and Sorting/Filtering JavaScript -->
 <script>
-// Existing JavaScript code remains unchanged...
+function filterAllTables() {
+    let input = document.getElementById('globalSearch');
+    let filter = input.value.toUpperCase();
+    let tables = ['ctoTable', 'leaveTable', 'travelTable'];
+    
+    tables.forEach(tableId => {
+        let table = document.getElementById(tableId);
+        let tr = table.getElementsByTagName('tr');
+        for (let i = 1; i < tr.length; i++) {
+            let tdArray = tr[i].getElementsByTagName('td');
+            let rowContainsSearchText = Array.from(tdArray).some(td => {
+                return td.textContent.toUpperCase().indexOf(filter) > -1;
+            });
+            tr[i].style.display = rowContainsSearchText ? '' : 'none';
+        }
+    });
+}
+
+function sortTable(tableId, colIndex) {
+    let table = document.getElementById(tableId);
+    let rows = Array.from(table.getElementsByTagName('tbody')[0].getElementsByTagName('tr'));
+    let isNumeric = !isNaN(rows[0].getElementsByTagName('td')[colIndex].innerText);
+    let isDate = rows[0].getElementsByTagName('td')[colIndex].getAttribute('data-date') !== null;
+    
+    rows.sort((a, b) => {
+        let aVal = a.getElementsByTagName('td')[colIndex].getAttribute('data-date') || a.getElementsByTagName('td')[colIndex].innerText;
+        let bVal = b.getElementsByTagName('td')[colIndex].getAttribute('data-date') || b.getElementsByTagName('td')[colIndex].innerText;
+
+        if (isDate) {
+            return new Date(aVal) - new Date(bVal);
+        } else if (isNumeric) {
+            return parseFloat(aVal) - parseFloat(bVal);
+        } else {
+            return aVal.localeCompare(bVal);
+        }
+    });
+
+    if (table.getAttribute("data-sort-order") === "desc") {
+        rows.reverse();
+        table.setAttribute("data-sort-order", "asc");
+    } else {
+        table.setAttribute("data-sort-order", "desc");
+    }
+
+    let tbody = table.getElementsByTagName('tbody')[0];
+    tbody.innerHTML = '';
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+function paginateTable(tableId, itemsPerPage) {
+    let table = document.getElementById(tableId);
+    let rows = table.getElementsByTagName('tbody')[0].getElementsByTagName('tr');
+    let paginationControls = document.getElementById(tableId + 'Pagination');
+    let totalPages = Math.ceil(rows.length / itemsPerPage);
+    let currentPage = 1;
+
+    function showPage(page) {
+        let start = (page - 1) * itemsPerPage;
+        let end = start + itemsPerPage;
+        
+        for (let i = 0; i < rows.length; i++) {
+            rows[i].style.display = (i >= start && i < end) ? '' : 'none';
+        }
+    }
+
+    function createPagination() {
+        paginationControls.innerHTML = '';
+        for (let i = 1; i <= totalPages; i++) {
+            let btn = document.createElement('button');
+            btn.innerText = i;
+            btn.classList.add('btn', 'btn-secondary');
+            if (i === currentPage) btn.classList.add('active');
+            btn.addEventListener('click', function() {
+                currentPage = i;
+                showPage(currentPage);
+                createPagination();
+            });
+            paginationControls.appendChild(btn);
+        }
+    }
+
+    showPage(currentPage);
+    createPagination();
+}
+
+window.onload = function() {
+    const tables = ['ctoTable', 'leaveTable', 'travelTable'];
+    tables.forEach(tableId => {
+        let headers = document.getElementById(tableId).getElementsByTagName('th');
+        for (let i = 0; i < headers.length; i++) {
+            headers[i].onclick = () => sortTable(tableId, i);
+        }
+    });
+
+    sortTable('ctoTable', 6);
+    sortTable('leaveTable', 6);
+    sortTable('travelTable', 7);
+    
+    paginateTable('ctoTable', 5);
+    paginateTable('leaveTable', 5);
+    paginateTable('travelTable', 5);
+}
 </script>
 
 <style>
@@ -119,16 +222,22 @@
         background-color: #f8f9fa;
         border-radius: 8px;
         padding: 20px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
     }
-    
-    .section-title {
-        font-weight: bold;
-        color: #343a40;
+
+    thead th {
+        background-color: #000; /* Set header background to black */
+        color: #fff;            /* Set header text color to white */
+        border: 1px solid #fff; /* Optional: Add a white border for better visibility */
     }
-    
-    .sortable {
+
+    .sortable:hover {
         cursor: pointer;
+        text-decoration: underline;
+    }
+
+    .pagination-controls button {
+        margin: 0 2px;
     }
 
     .pagination-controls {
@@ -136,13 +245,16 @@
         text-align: center;
     }
 
-    .pagination-controls button {
-        margin: 0 2px;
+    .thead-dark th {
+        background-color: #000; /* Ensure this is also set to black */
+        color: #fff;
     }
 
-    .thead-dark th {
-        background-color: #343a40;
+    .btn.active {
+        background-color: #007bff;
         color: white;
     }
 </style>
+
+
 {% endblock %}

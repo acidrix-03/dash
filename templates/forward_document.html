@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Custom styles for the document details card */
+    .document-details-card {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        background-color: #fff;
+        margin-bottom: 30px;
+    }
+
+    .document-details-card p {
+        margin: 10px 0;
+    }
+
+    .document-details-card p strong {
+        color: #007bff;
+    }
+
+    .autocomplete-suggestions {
+        border: 1px solid #ccc;
+        background-color: #fff;
+        max-height: 150px;
+        overflow-y: auto;
+        position: absolute;
+        z-index: 1000;
+        width: 100%;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .autocomplete-suggestion {
+        padding: 10px;
+        cursor: pointer;
+    }
+
+    .autocomplete-suggestion:hover {
+        background-color: #f0f0f0;
+    }
+
+    .form-field {
+        margin-bottom: 15px;
+    }
+
+    .form-field label {
+        font-weight: bold;
+        display: block;
+        margin-bottom: 5px;
+    }
+
+    .form-field input,
+    .form-field textarea,
+    .form-field select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    .form-field input:focus,
+    .form-field textarea:focus,
+    .form-field select:focus {
+        border-color: #007bff;
+        outline: none;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+        color: #fff;
+        padding: 10px 20px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s, border-color 0.3s;
+    }
+
+    .btn-primary:hover {
+        background-color: #0056b3;
+        border-color: #004085;
+    }
+
+    .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    @media (max-width: 768px) {
+        .container {
+            padding: 10px;
+        }
+    }
+</style>
+
+<script>
+    const officeOptions = {
+        OSDS: ["Accounting", "Admin", "Budget", "ICT", "Legal", "Office of the ASDS", "Office of the SDS", "Payroll", "Personnel", "Records"],
+        SGOD: ["Education Facilities", "Health", "HRD", "Planning & Research", "SGOD", "SMME", "SMN"],
+        CID: ["ALS", "CID", "LR", "PSDS"]
+    };
+
+    function updateOfficeOptions() {
+        const divisionSelect = document.getElementById("forward_to_division");
+        const officeSelect = document.getElementById("office_forwarded_to");
+
+        // Clear current options
+        officeSelect.innerHTML = '<option value="">Select Office</option>';
+
+        // Get selected division
+        const selectedDivision = divisionSelect.value;
+
+        // Populate offices based on selected division
+        if (officeOptions[selectedDivision]) {
+            officeOptions[selectedDivision].forEach(office => {
+                const option = document.createElement("option");
+                option.value = office;
+                option.text = office;
+                officeSelect.appendChild(option);
+            });
+        }
+    }
+
+    async function searchNames() {
+        const input = document.getElementById("forwarded_to").value;
+        const suggestionsBox = document.getElementById("autocomplete-suggestions");
+
+        if (input.length < 1) {
+            suggestionsBox.innerHTML = '';
+            suggestionsBox.classList.remove("active");
+            return;
+        }
+
+        try {
+            const response = await fetch(`/search_users?q=${encodeURIComponent(input)}`);
+            if (!response.ok) throw new Error("Network response was not ok");
+            const usernames = await response.json();
+
+            suggestionsBox.innerHTML = '';
+            usernames.forEach(username => {
+                const div = document.createElement("div");
+                div.classList.add("autocomplete-suggestion");
+                div.textContent = username;
+
+                div.onclick = () => {
+                    document.getElementById("forwarded_to").value = username;
+                    suggestionsBox.innerHTML = '';
+                    suggestionsBox.classList.remove("active");
+                };
+
+                suggestionsBox.appendChild(div);
+            });
+
+            if (usernames.length > 0) {
+                suggestionsBox.classList.add("active");
+            } else {
+                suggestionsBox.classList.remove("active");
+            }
+
+        } catch (error) {
+            console.error("Error fetching usernames:", error);
+        }
+    }
+</script>
+
+<div class="container">
+    <div class="document-details-card">
+        <h3>Document Details</h3>
+        <p><strong>Title:</strong> {{ document_details[0] }}</p>
+        <p><strong>Created By:</strong> {{ document_details[1] }}</p>
+        <p><strong>Division:</strong> {{ document_details[2] }}</p>
+        <p><strong>Creation Date:</strong> {{ document_details[3] }}</p>
+        <p><strong>Details:</strong> {{ document_details[4] }}</p>
+    </div>
+
+    <h2 class="mb-4">Forward Document</h2>
+    <form action="{{ url_for('submit_forward_document') }}" method="POST">
+        <input type="hidden" name="document_id" value="{{ document_id }}">
+        <div class="form-field">
+            <label for="forward_to_division">Forward to Division:</label>
+            <select id="forward_to_division" name="forward_to_division" class="input-select" onchange="updateOfficeOptions()" required>
+                <option value="" disabled selected>Select Division</option>
+                <option value="SGOD">SGOD</option>
+                <option value="OSDS">OSDS</option>
+                <option value="CID">CID</option>
+            </select>
+        </div>     
+        <div class="form-field">
+            <label for="office_forwarded_to">Office Forwarded to:</label>
+            <select id="office_forwarded_to" name="office_forwarded_to" class="input-select" required>
+                <option value="">Select Office</option>
+            </select>
+        </div>           
+        <div class="form-field">
+            <label for="forwarded_to">Forwarded to:</label>
+            <div style="position: relative;">
+                <input type="text" id="forwarded_to" name="forwarded_to" class="input-text" oninput="searchNames()" autocomplete="off">
+                <div id="autocomplete-suggestions" class="autocomplete-suggestions"></div>
+            </div>
+        </div>
+        <div class="form-field">
+            <label for="comments">Comments:</label>
+            <textarea class="form-control" id="comments" name="comments" rows="3"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Forward</button>
+    </form>
+</div>
+
+{% endblock %}

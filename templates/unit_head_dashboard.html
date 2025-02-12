@@ -14,7 +14,6 @@
                 <th>Days</th>
                 <th>Start Date</th>
                 <th>End Date</th>
-                <th>Status</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -26,7 +25,6 @@
                 <td>{{ application[3] }}</td>
                 <td>{{ application[4] }}</td>
                 <td>{{ application[5] }}</td>
-                <td>{{ application[7] }}</td> <!-- Display the status -->
                 <td>
                     <button class="btn btn-success recommend-btn" 
                             data-id="{{ application[0] }}" 
@@ -120,7 +118,7 @@
     </table>
 
     <div class="text-center mt-4">
-        <a href="{{ url_for('recommended_head') }}" class="btn btn-primary mb-3">See Recommended Applications</a>
+        <a href="{{ url_for('recommended_head') }}" class="btn btn-danger mb-3">See Recommended Applications</a>
     </div>
 </div>
 
@@ -184,7 +182,7 @@ body {
     background-color: #f8f9fa;
 }
 .table th {
-    background-color: #007bff;
+    background-color: #ff0000;
     color: white;
 }
 .table tbody tr:hover {

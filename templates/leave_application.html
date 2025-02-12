@@ -1,89 +1,89 @@
 {% extends "base.html" %}
 {% block content %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leave Application</title>
-</head>
-<body>
-    <form id="leaveForm" method="POST" action="{{ url_for('submit_and_print_leave_application_excel') }}">
-        <div class="form-group">
-            <label for="name">Name:</label>
-            <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" required>
+<div class="container mt-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">Leave Application</h2>
         </div>
-        <div class="form-group">
-            <label for="position">Position:</label>
-            <input type="text" id="position" name="position" value="{{ session['position'] }}" class="form-control" required>
-        </div>
+        <div class="card-body">
+            <form id="leaveForm" method="POST" action="{{ url_for('submit_and_print_leave_application_excel') }}">
+                <div class="form-group mb-3">
+                    <label for="name" class="form-label">Name:</label>
+                    <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="position" class="form-label">Position:</label>
+                    <input type="text" id="position" name="position" value="{{ session['position'] }}" class="form-control" required>
+                </div>
 
-        <!-- Add Office Field -->
-        <div class="form-group">
-            <label for="office">Office:</label>
-            <input type="text" id="office" name="office" value="{{ user_details[0] }}" class="form-control" required>
-        </div>
+                <!-- Add Office Field -->
+                <div class="form-group mb-3">
+                    <label for="office" class="form-label">Office:</label>
+                    <input type="text" id="office" name="office" value="{{ user_details[0] }}" class="form-control" required>
+                </div>
 
-        <!-- Add Salary Field -->
-        <div class="form-group">
-            <label for="salary">Salary:</label>
-            <input type="number" id="salary" name="salary" value="{{ user_details[1] }}" class="form-control" required>
-        </div>
+                <!-- Add Salary Field -->
+                <div class="form-group mb-3">
+                    <label for="salary" class="form-label">Salary:</label>
+                    <input type="number" id="salary" name="salary" value="{{ user_details[1] }}" class="form-control" required>
+                </div>
 
-        <div class="form-group">
-            <label for="days">No. of Days applied:</label>
-            <input type="number" id="days" name="days" class="form-control" required>
+                <div class="form-group mb-3">
+                    <label for="days" class="form-label">No. of Days applied:</label>
+                    <input type="number" id="days" name="days" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="start_date" class="form-label">Start Date:</label>
+                    <input type="date" id="start_date" name="start_date" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="end_date" class="form-label">End Date:</label>
+                    <input type="date" id="end_date" name="end_date" class="form-control" required>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="leave_type" class="form-label">Leave Type:</label>
+                    <select id="leave_type" name="leave_type" class="form-select" required>
+                        <option value="" disabled selected>Select Leave Type</option>
+                        <option value="Vacation Leave">Vacation Leave</option>
+                        <option value="Mandatory/Forced Leave">Mandatory/Forced Leave</option>
+                        <option value="Sick Leave">Sick Leave</option>
+                        <option value="Maternity Leave">Maternity Leave</option>
+                        <option value="Paternity Leave">Paternity Leave</option>
+                        <option value="Special Privilege Leave">Special Privilege Leave</option>
+                        <option value="Solo Parent Leave">Solo Parent Leave</option>
+                        <option value="Study Leave">Study Leave</option>
+                        <option value="10-Day VAWC Leave">10-Day VAWC Leave</option>
+                        <option value="Rehabilitation Privilege">Rehabilitation Privilege</option>
+                        <option value="Special Leave for Women">Special Leave for Women</option>
+                        <option value="Calamity Leave">Calamity Leave</option>
+                        <option value="Adoption Leave">Adoption Leave</option>
+                        <option value="Monetization">Monetization</option>
+                    </select>
+                </div>
+                <div class="form-group mb-3">
+                    <label for="recommending_approval" class="form-label">Recommender:</label>
+                    <select id="recommending_approval" name="recommending_approval" class="form-select" required>
+                        <option value="" disabled selected>Select Recommender</option>
+                        {% for user in approving_users %}
+                            <option value="{{ user }}">{{ user }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary">Back to My Dashboard</a>
+                    <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Excel</button>
+                </div>
+            </form>
         </div>
-        <div class="form-group">
-            <label for="start_date">Start Date:</label>
-            <input type="date" id="start_date" name="start_date" class="form-control" required>
-        </div>
-        <div class="form-group">
-            <label for="end_date">End Date:</label>
-            <input type="date" id="end_date" name="end_date" class="form-control" required>
-        </div>
-        <div class="form-group">
-            <label for="leave_type">Leave Type:</label>
-            <select id="leave_type" name="leave_type" class="form-control" required>
-                <option value="">Select Leave Type</option>
-                <option value="Vacation Leave">Vacation Leave</option>
-                <option value="Mandatory/Forced Leave">Mandatory/Forced Leave</option>
-                <option value="Sick Leave">Sick Leave</option>
-                <option value="Maternity Leave">Maternity Leave</option>
-                <option value="Paternity Leave">Paternity Leave</option>
-                <option value="Special Privilege Leave">Special Privilege Leave</option>
-                <option value="Solo Parent Leave">Solo Parent Leave</option>
-                <option value="Study Leave">Study Leave</option>
-                <option value="10-Day VAWC Leave">10-Day VAWC Leave</option>
-                <option value="Rehabilitation Privilege">Rehabilitation Privilege</option>
-                <option value="Special Leave for Women">Special Leave for Women</option>
-                <option value="Calamity Leave">Calamity Leave</option>
-                <option value="Adoption Leave">Adoption Leave</option>
-                <option value="Monetization">Monetization</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="recommending_approval">Recommender:</label>
-            <select id="recommending_approval" name="recommending_approval" class="form-control" required>
-                <option value="">Select Recommender</option>
-                {% for user in approving_users %}
-                    <option value="{{ user }}">{{ user }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        
-        <!-- Add buttons -->
-        <a href="{{ url_for('user_dashboard') }}" class="btn btn-primary mt-1">Back to My Dashboard</a>
-        <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Excel</button>
-    </form>
+    </div>
+</div>
 
-    <script>
-        function handleFormSubmit() {
-            setTimeout(function() {
-                window.location.href = "{{ url_for('user_dashboard') }}";
-            }, 1000);
-        }
-    </script>
-</body>
-</html>
+<script>
+    function handleFormSubmit() {
+        setTimeout(function() {
+            window.location.href = "{{ url_for('user_dashboard') }}";
+        }, 1000);
+    }
+</script>
 {% endblock %}

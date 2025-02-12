@@ -100,37 +100,39 @@
         }
 
         .card {
-            background-color: #1f1f1f;
-            border: none;
-            border-radius: 15px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            transition: transform 0.2s ease-in-out;
-            text-align: center;
-            padding: 20px;
-            color: #f1f1f1;
+        background-color: #1f1f1f;
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        transition: transform 0.2s ease-in-out;
+        text-align: center;
+        padding: 10px; /* Reduced padding */
+        color: #f1f1f1;
+        width: 200px; /* Adjust the width */
+        margin: 10px auto; /* Center the card and add margin */
         }
 
         .card:hover {
-            transform: translateY(-10px);
+            transform: translateY(-5px); /* Reduced hover effect */
         }
 
         .card-body {
-            padding: 15px;
+            padding: 10px; /* Reduced padding */
         }
 
         .card h5 {
-            font-size: 1.2rem;
+            font-size: 1rem; /* Reduced font size */
             font-weight: bold;
             color: #f1f1f1;
         }
 
         .card p {
-            font-size: 1.5rem;
+            font-size: 1.2rem; /* Reduced font size */
             font-weight: bold;
         }
 
         .card-icon {
-            font-size: 2.5rem;
+            font-size: 2rem; /* Reduced icon size */
             color: #007bff;
         }
 
@@ -161,6 +163,15 @@
             background-color: #333;
             color: #f1f1f1;
         }
+
+        .btn-clear {
+            margin-top: 20px;
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-clear:hover {
+            background-color: #c82333;
+        }
     </style>
 </head>
 
@@ -183,6 +194,12 @@
         <button type="button" class="btn btn-danger btn-block" data-toggle="modal" data-target="#confirmDeleteModal">
             Clear Data
         </button>
+        <button type="button" class="btn btn-clear btn-block" data-toggle="modal" data-target="#confirmClearPersonnelTrackerModal">
+            <i class="fas fa-user-slash"></i> Clear Personnel Tracker Data
+        </button>
+        <button type="button" class="btn btn-clear btn-block" data-toggle="modal" data-target="#confirmClearDocumentTrackerModal">
+            <i class="fas fa-file-alt"></i> Clear Document Tracker Data
+        </button>
     </div>
 
     <!-- Main Content Area -->
@@ -190,91 +207,90 @@
         <div class="container mt-5">
             <h2>Admin Dashboard</h2>
 
-            <!-- Charts Section -->
-            <div class="chart-container">
+            <!-- Number of Users Currently Logged In -->
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="card card-minimized">
+                        <i class="fas fa-users card-icon"></i>
+                        <h5>Users Currently Logged In</h5>
+                        <p>{{ logged_in_users }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Applications Chart -->
+            <div class="chart-container mt-4">
                 <h3>Application Data Analysis</h3>
-                <canvas id="applicationsChart" class="chart"></canvas>
+                <canvas id="applicationsChart"></canvas>
             </div>
 
-            <!-- Application Counts -->
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="card card-minimized">
-                        <i class="fas fa-file-alt card-icon"></i>
-                        <h5>Total CTO Applications</h5>
-                        <p>{{ total_cto }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card card-minimized">
-                        <i class="fas fa-calendar-alt card-icon"></i>
-                        <h5>Total Leave Applications</h5>
-                        <p>{{ total_leave }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card card-minimized">
-                        <i class="fas fa-plane-departure card-icon"></i>
-                        <h5>Total Travel Authorities</h5>
-                        <p>{{ total_travel }}</p>
-                    </div>
-                </div>
+            <!-- Document Tracker Chart -->
+            <div class="chart-container mt-4">
+                <h3>Document Tracker Data Analysis</h3>
+                <canvas id="documentTrackerChart"></canvas>
             </div>
 
-            <!-- Pending Applications -->
-            <h3 class="mt-4">Pending Applications</h3>
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="card card-minimized">
-                        <i class="fas fa-hourglass-half card-icon"></i>
-                        <h5>Pending CTO Applications</h5>
-                        <p>{{ pending_cto }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card card-minimized">
-                        <i class="fas fa-hourglass-half card-icon"></i>
-                        <h5>Pending Leave Applications</h5>
-                        <p>{{ pending_leave }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card card-minimized">
-                        <i class="fas fa-hourglass-half card-icon"></i>
-                        <h5>Pending Travel Authorities</h5>
-                        <p>{{ pending_travel }}</p>
-                    </div>
-                </div>
-            </div>
-
-            
-            <!-- Approved Applications -->
-            <h3 class="mt-4">Approved Applications</h3>
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="card card-minimized">
-                        <i class="fas fa-check-circle card-icon"></i>
-                        <h5>Approved CTO Applications</h5>
-                        <p>{{ approved_cto }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card card-minimized">
-                        <i class="fas fa-check-circle card-icon"></i>
-                        <h5>Approved Leave Applications</h5>
-                        <p>{{ approved_leave }}</p>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card card-minimized">
-                        <i class="fas fa-check-circle card-icon"></i>
-                        <h5>Approved Travel Authorities</h5>
-                        <p>{{ approved_travel }}</p>
-                    </div>
-                </div>
-            </div>
+            <!-- ...existing code... -->
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const ctxApplications = document.getElementById('applicationsChart').getContext('2d');
+        const applicationsChart = new Chart(ctxApplications, {
+            type: 'bar',
+            data: {
+                labels: ['CTO', 'Leave', 'Travel'],
+                datasets: [
+                    {
+                        label: 'Total',
+                        data: [{{ total_cto }}, {{ total_leave }}, {{ total_travel }}],
+                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                    },
+                    {
+                        label: 'Pending',
+                        data: [{{ pending_cto }}, {{ pending_leave }}, {{ pending_travel }}],
+                        backgroundColor: 'rgba(255, 206, 86, 0.6)',
+                    },
+                    {
+                        label: 'Approved',
+                        data: [{{ approved_cto }}, {{ approved_leave }}, {{ approved_travel }}],
+                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                },
+            },
+        });
+
+        const ctxDocumentTracker = document.getElementById('documentTrackerChart').getContext('2d');
+        const documentTrackerChart = new Chart(ctxDocumentTracker, {
+            type: 'bar',
+            data: {
+                labels: ['Submitted', 'Forwarded', 'Received'],
+                datasets: [
+                    {
+                        label: 'Documents',
+                        data: [{{ total_submitted }}, {{ total_forwarded }}, {{ total_received }}],
+                        backgroundColor: ['#007bff', '#28a745', '#ffc107']
+                    }
+                ]
+            },
+            options: {
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    </script>
 
     <!-- Toggle Sidebar Button -->
     <button class="toggle-sidebar-btn" id="toggleSidebar">
@@ -304,6 +320,52 @@
                     <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
                     <button type="submit" form="deleteForm" class="btn btn-danger">Delete</button>
                     
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Clear Personnel Tracker Confirmation -->
+    <div class="modal fade" id="confirmClearPersonnelTrackerModal" tabindex="-1" role="dialog" aria-labelledby="confirmClearPersonnelTrackerModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Clear Personnel Tracker Data</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="clearPersonnelTrackerForm" method="POST" action="{{ url_for('clear_documents_db') }}">
+                        <p>Are you sure you want to clear all data in the Personnel Tracker? This action cannot be undone.</p>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" form="clearPersonnelTrackerForm" class="btn btn-danger">Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for Clear Document Tracker Confirmation -->
+    <div class="modal fade" id="confirmClearDocumentTrackerModal" tabindex="-1" role="dialog" aria-labelledby="confirmClearDocumentTrackerModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Confirm Clear Document Tracker Data</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form id="clearDocumentTrackerForm" method="POST" action="{{ url_for('clear_document_tracker_db') }}">
+                        <p>Are you sure you want to clear all data in the Document Tracker? This action cannot be undone.</p>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" form="clearDocumentTrackerForm" class="btn btn-danger">Clear</button>
                 </div>
             </div>
         </div>
@@ -339,6 +401,28 @@
                         data: [{{ total_cto }}, {{ total_leave }}, {{ total_travel }}],
                         backgroundColor: ['#007bff', '#28a745', '#ffc107']
                     }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            const ctxDocumentTracker = document.getElementById('documentTrackerChart').getContext('2d');
+            const documentTrackerChart = new Chart(ctxDocumentTracker, {
+                type: 'bar',
+                data: {
+                    labels: ['Submitted', 'Forwarded', 'Received'],
+                    datasets: [
+                        {
+                            label: 'Documents',
+                            data: [{{ total_submitted }}, {{ total_forwarded }}, {{ total_received }}],
+                            backgroundColor: ['#007bff', '#28a745', '#ffc107']
+                        }
+                    ]
                 },
                 options: {
                     scales: {

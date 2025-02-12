@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block content %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Applications Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2>Applications Dashboard</h2>
+
+        <!-- Tabs for each application type -->
+        <ul class="nav nav-tabs" id="applicationTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="cto-tab" data-bs-toggle="tab" href="#cto" role="tab" aria-controls="cto" aria-selected="true">CTO Application</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="leave-tab" data-bs-toggle="tab" href="#leave" role="tab" aria-controls="leave" aria-selected="false">Leave Application</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="travel-tab" data-bs-toggle="tab" href="#travel" role="tab" aria-controls="travel" aria-selected="false">Travel Authority</a>
+            </li>
+        </ul>
+
+        <!-- Tab content for each application form -->
+        <div class="tab-content mt-4">
+            <!-- CTO Application Form -->
+            <div class="tab-pane fade show active" id="cto" role="tabpanel" aria-labelledby="cto-tab">
+                <form action="{{ url_for('submit_and_print_cto_application_excel') }}" method="post">
+                    <div class="form-group mb-3">
+                        <label for="name" class="form-label">Name:</label>
+                        <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="position" class="form-label">Position:</label>
+                        <input type="text" id="position" name="position" value="{{ session['position'] }}" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="days" class="form-label">No. of Days applied:</label>
+                        <input type="number" id="days" name="days" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="start_date" class="form-label">Start Date:</label>
+                        <input type="date" id="start_date" name="start_date" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="end_date" class="form-label">End Date:</label>
+                        <input type="date" id="end_date" name="end_date" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="recommending_approval" class="form-label">Recommender:</label>
+                        <select id="recommending_approval" name="recommending_approval" class="form-select" required>
+                            <option value="" disabled selected>Select Recommender</option>
+                            {% for user in approving_users %}
+                                <option value="{{ user }}">{{ user }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary">Back to My Dashboard</a>
+                        <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Excel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Leave Application Form -->
+            <div class="tab-pane fade" id="leave" role="tabpanel" aria-labelledby="leave-tab">
+                <form action="{{ url_for('submit_and_print_leave_application_excel') }}" method="post">
+                    <div class="form-group mb-3">
+                        <label for="leaveName" class="form-label">Name:</label>
+                        <input type="text" id="leaveName" name="name" value="{{ session['username'] }}" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="leavePosition" class="form-label">Position:</label>
+                        <input type="text" id="leavePosition" name="position" value="{{ session['position'] }}" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="office" class="form-label">Office:</label>
+                        <input type="text" id="office" name="office" value="{{ user_details[0] }}" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="salary" class="form-label">Salary:</label>
+                        <input type="text" id="salary" name="salary" value="{{ user_details[1] }}" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="days" class="form-label">No. of Days applied:</label>
+                        <input type="number" id="days" name="days" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="start_date" class="form-label">Start Date:</label>
+                        <input type="date" id="start_date" name="start_date" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="end_date" class="form-label">End Date:</label>
+                        <input type="date" id="end_date" name="end_date" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="leave_type" class="form-label">Leave Type:</label>
+                        <select id="leave_type" name="leave_type" class="form-select" required>
+                            <option value="" disabled selected>Select Leave Type</option>
+                            <option value="Vacation Leave">Vacation Leave</option>
+                            <option value="Mandatory/Forced Leave">Mandatory/Forced Leave</option>
+                            <option value="Sick Leave">Sick Leave</option>
+                            <option value="Maternity Leave">Maternity Leave</option>
+                            <option value="Paternity Leave">Paternity Leave</option>
+                            <option value="Special Privilege Leave">Special Privilege Leave</option>
+                            <option value="Solo Parent Leave">Solo Parent Leave</option>
+                            <option value="Study Leave">Study Leave</option>
+                            <option value="10-Day VAWC Leave">10-Day VAWC Leave</option>
+                            <option value="Rehabilitation Privilege">Rehabilitation Privilege</option>
+                            <option value="Special Leave for Women">Special Leave for Women</option>
+                            <option value="Calamity Leave">Calamity Leave</option>
+                            <option value="Adoption Leave">Adoption Leave</option>
+                            <option value="Monetization">Monetization</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="recommending_approval" class="form-label">Recommender:</label>
+                        <select id="recommending_approval" name="recommending_approval" class="form-select" required>
+                            <option value="" disabled selected>Select Recommender</option>
+                            {% for user in approving_users %}
+                                <option value="{{ user }}">{{ user }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary">Back to My Dashboard</a>
+                        <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Excel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Travel Authority Form -->
+            <div class="tab-pane fade" id="travel" role="tabpanel" aria-labelledby="travel-tab">
+                <form action="{{ url_for('submit_and_print_travel_authority_excel') }}" method="post">
+                    <div class="form-group mb-3">
+                        <label for="travelName" class="form-label">Name:</label>
+                        <input type="text" id="travelName" name="name" value="{{ session['username'] }}" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="travelPosition" class="form-label">Position:</label>
+                        <input type="text" id="travelPosition" name="position" value="{{ session['position'] }}" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="purpose" class="form-label">Purpose:</label>
+                        <input type="text" id="purpose" name="purpose" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="destination" class="form-label">Destination:</label>
+                        <input type="text" id="destination" name="destination" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="travel_date" class="form-label">Start Date:</label>
+                        <input type="date" id="travel_date" name="start_date" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="return_date" class="form-label">End Date:</label>
+                        <input type="date" id="return_date" name="end_date" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="host" class="form-label">Host of Activity:</label>
+                        <input type="text" id="host" name="host" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="recommending_approval" class="form-label">Recommender:</label>
+                        <select id="recommending_approval" name="recommending_approval" class="form-select" required>
+                            <option value="" disabled selected>Select Recommender</option>
+                            {% for user in approving_users %}
+                                <option value="{{ user }}">{{ user }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary">Back to My Dashboard</a>
+                        <button type="submit" class="btn btn-primary" onclick="handleFormSubmit()">Submit and Download Travel Authority</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+
+<script>
+    function handleFormSubmit() {
+        setTimeout(function() {
+            window.location.href = "{{ url_for('user_dashboard') }}";
+        }, 1000);
+    }
+</script>
+{% endblock %}

@@ -15,7 +15,7 @@
                     <th>Days</th>
                     <th>Start Date</th>
                     <th>End Date</th>
-                    <th>Status</th>
+                    <th>Recommended by:</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -27,13 +27,18 @@
                     <td>{{ application[3] }}</td>
                     <td>{{ application[4] }}</td>
                     <td>{{ application[5] }}</td>
-                    <td>{{ application[7] }}</td> <!-- Display the status -->
+                    <td>{{ application[14] }}</td>
                     <td>
                         <button class="btn btn-success approve-btn" 
                                 data-id="{{ application[0] }}" 
                                 data-type="cto">
                             Approve
                         </button>
+                        <button class="btn btn-danger reject-btn" 
+                                data-id="{{ application[0] }}" 
+                                data-type="cto">
+                            Reject
+                         </button>
                     </td>
                 </tr>
                 {% endfor %}
@@ -53,7 +58,7 @@
                     <th>Start Date</th>
                     <th>End Date</th>
                     <th>Leave Type</th>
-                    <th>Status</th>
+                    <th>Recommended by</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -66,12 +71,17 @@
                     <td>{{ application[4] }}</td>
                     <td>{{ application[5] }}</td>
                     <td>{{ application[7] }}</td>
-                    <td>{{ application[8] }}</td> <!-- Display the status -->
+                    <td>{{ application[15] }}</td>
                     <td>
                         <button class="btn btn-success approve-btn" 
                                 data-id="{{ application[0] }}" 
                                 data-type="leave">
                             Approve
+                        </button>
+                        <button class="btn btn-danger reject-btn" 
+                                data-id="{{ application[0] }}" 
+                                data-type="leave">
+                            Reject
                         </button>
                     </td>
                 </tr>
@@ -92,7 +102,7 @@
                     <th>Destination</th>
                     <th>Start Date</th>
                     <th>End Date</th>
-                    <th>Status</th>
+                    <th>Recommended by</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -105,12 +115,17 @@
                     <td>{{ authority[7] }}</td>
                     <td>{{ authority[5] }}</td>
                     <td>{{ authority[6] }}</td>
-                    <td>{{ authority[9] }}</td> <!-- Display the status -->
+                    <td>{{ authority[15] }}</td>
                     <td>
                         <button class="btn btn-success approve-btn" 
                                 data-id="{{ authority[0] }}" 
                                 data-type="travel_authority">
                             Approve
+                        </button>
+                        <button class="btn btn-danger reject-btn" 
+                                data-id="{{ authority[0] }}" 
+                                data-type="travel_authority">
+                            Reject
                         </button>
                     </td>
                 </tr>
@@ -124,14 +139,45 @@
     </div>
 </div>
 
+    <!-- Modal for Rejection Comment -->
+    <div class="modal fade" id="rejectionModal" tabindex="-1" role="dialog" aria-labelledby="rejectionModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="rejectionModalLabel">Reject Application</h5>
+                    <p>Press Escape to Cancel</p>
+                </div>
+                <div class="modal-body">
+                    <form id="rejection-form">
+                        <div class="form-group">
+                            <label for="rejection-comment">Reason for Rejection</label>
+                            <textarea class="form-control" id="rejection-comment" rows="3" required></textarea>
+                        </div>
+                        <input type="hidden" id="reject-app-id">
+                        <input type="hidden" id="reject-app-type">
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" id="submit-rejection">Reject</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+
 <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 <script>
     $(document).ready(function() {
-        // AJAX for approving applications
+        // Handle approve button click
         $('.approve-btn').on('click', function() {
             var button = $(this);
-            var appId = button.data('id');  // Get application ID
-            var applicationType = button.data('type');  // Get application type
+            var appId = button.data('id');
+            var applicationType = button.data('type');
+            var row = $('#row-' + appId);
+
+            // Disable both buttons
+            row.find('.approve-btn, .reject-btn').attr('disabled', true);
 
             $.ajax({
                 type: 'POST',
@@ -139,19 +185,70 @@
                 data: { application_type: applicationType },
                 success: function(response) {
                     if (response.success) {
-                        button.text('Approved').attr('disabled', true).removeClass('btn-success').addClass('btn-secondary');
+                        button.text('Approved').removeClass('btn-success').addClass('btn-secondary');
                         alert('Application successfully approved!');
                     } else {
                         alert('Error: ' + response.error);
+                        // Re-enable buttons in case of error
+                        row.find('.approve-btn, .reject-btn').attr('disabled', false);
                     }
                 },
                 error: function() {
                     alert('An error occurred. Please try again.');
+                    // Re-enable buttons in case of error
+                    row.find('.approve-btn, .reject-btn').attr('disabled', false);
+                }
+            });
+        });
+
+        // Handle reject button click
+        $('.reject-btn').on('click', function() {
+            var appId = $(this).data('id');
+            var appType = $(this).data('type');
+            $('#reject-app-id').val(appId);
+            $('#reject-app-type').val(appType);
+            $('#rejectionModal').modal('show');
+        });
+
+        // Submit rejection with reason
+        $('#submit-rejection').on('click', function() {
+            var appId = $('#reject-app-id').val();
+            var appType = $('#reject-app-type').val();
+            var rejectionComment = $('#rejection-comment').val();
+            var row = $('#row-' + appId);
+
+            // Disable both buttons
+            row.find('.approve-btn, .reject-btn').attr('disabled', true);
+
+            $.ajax({
+                type: 'POST',
+                url: '/reject_application/' + appId,
+                data: { application_type: appType, rejection_comment: rejectionComment },
+                success: function(response) {
+                    if (response.success) {
+                        row.find('.reject-btn').text('Rejected').removeClass('btn-danger').addClass('btn-secondary');
+                        $('#rejectionModal').modal('hide');
+                        alert('Application rejected!');
+                    } else {
+                        alert('Error: ' + response.error);
+                        // Re-enable buttons in case of error
+                        row.find('.approve-btn, .reject-btn').attr('disabled', false);
+                    }
+                },
+                error: function() {
+                    alert('An error occurred. Please try again.');
+                    // Re-enable buttons in case of error
+                    row.find('.approve-btn, .reject-btn').attr('disabled', false);
                 }
             });
         });
     });
 </script>
+
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+<script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
 
 <style>
     body {

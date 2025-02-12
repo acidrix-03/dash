@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FormHub</title>
+    <title>DASH: Document Application System Hub - Login</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -11,89 +11,91 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
-            background: angle-gradient(to right, #ffffff, #707070); 
-            color: #fff; /* White text */
-        }
-        .navbar {
-            border-bottom: 2px solid #dee2e6;
-            background: #000; /* Black navbar */
+            background: linear-gradient(to right, #2c3e50, #3498db); 
+            color: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
         }
         .container {
-            max-width: 500px;
-            margin-top: 50px;
-            background: #000; /* Black container */
-            padding: 30px;
+            max-width: 400px;
+            background: #1c1e21;
+            padding: 40px;
             border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+            text-align: center;
         }
         .form-group label {
             font-weight: 600;
-            color: #fff; /* White labels */
+            color: #fff;
+        }
+        .form-control {
+            border-radius: 8px;
+            background-color: #f3f3f3;
         }
         .form-control:focus {
-            border-color: #ff7f50; /* Orange border on focus */
-            box-shadow: 0 0 5px rgba(255, 127, 80, 0.5); /* Soft orange glow */
+            border-color: #ff7f50;
+            box-shadow: 0 0 5px rgba(255, 127, 80, 0.5);
         }
         .btn-primary {
-            background-color: #ff7f50; /* Orange buttons */
+            background-color: #ff7f50;
             border-color: #ff7f50;
+            font-weight: 600;
+            border-radius: 8px;
+            margin-top: 10px;
         }
         .btn-primary:hover {
-            background-color: #e06e39; /* Darker orange on hover */
+            background-color: #e06e39;
             border-color: #e06e39;
         }
-        .btn-secondary {
-            background-color: #6c757d;
-            border-color: #6c757d;
+        .search-section {
+            background-color: #222;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 30px;
+            color: #fff;
         }
-        .btn-secondary:hover {
-            background-color: #5a6268;
-            border-color: #545b62;
+        .search-results {
+            max-height: 150px;
+            overflow-y: auto;
         }
-        .text-center img {
-            max-width: 150px;
-            margin-bottom: 20px;
+        .loader {
+            display: none;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #ff7f50;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 15px auto;
         }
-        .app-description {
-            margin-top: 20px;
-            font-size: 1rem;
-            color: #fff; /* White description */
-        }
-        .credits {
-            margin-top: 10px;
-            font-size: 0.9rem;
-            color: #fff; /* White credits */
-        }
-        footer {
-            margin-top: 20px;
-            text-align: center;
-            font-size: 0.9rem;
-            color: #fff; /* White footer */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-        <a class="navbar-brand" href="#">FormHub</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ml-auto">
-                {% if session.get('username') %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
-                </li>
-                {% endif %}
-            </ul>
-        </div>
-    </nav>
-    <div class="container mt-5">
+    <div class="container">
         <div class="text-center">
-            <img src="{{ url_for('static', filename='logo.png') }}" alt="Division Logo" class="mb-4">
+            <img src="{{ url_for('static', filename='logo.png') }}" alt="Division Logo" style="max-width: 120px; margin-bottom: 15px;">
         </div>
-        <h2 class="text-center">Login</h2>
-        <!-- <p class="app-description text-center">Welcome to FormHub, your go-to platform for efficient document submissions.</p> -->
-        <!-- <p class="credits text-center">Created by: Gary H. Ballon, ITO 1 & Drixel Idol R. Ortega, ADAS III</p> -->
+        <h2>Login to DASH</h2>
+        <p> Document Application System Hub</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="alert alert-danger flash-message">
+            {% for category, message in messages %}
+              <p>{{ message }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+        {% endwith %}
+
+        <!-- Login Form -->
         <form method="POST" action="{{ url_for('login') }}">
             <div class="form-group">
                 <label for="username">Employee ID:</label>
@@ -105,11 +107,35 @@
             </div>
             <button type="submit" class="btn btn-primary btn-block">Login</button>
         </form>
-        <a href="{{ url_for('register') }}" class="btn btn-secondary btn-block mt-3">Register</a>
+
+        <!-- Search Form -->
+        <div class="search-section mt-4">
+            <h5>Check Registration</h5>
+            <form id="user-search-form" class="form-inline justify-content-center">
+                <input type="text" id="search-input" name="search-input" class="form-control mr-2" placeholder="Enter Employee ID" required>
+                <button type="button" class="btn btn-info" onclick="searchUser()">Search</button>
+            </form>
+            <p id="search-result" class="mt-2 font-weight-bold text-info"></p>
+        </div>
+        <a href="{{ url_for('register') }}" class="btn btn-secondary btn-block mt-4">Register</a>
+        <footer class="text-center" style="color: #ffa55b; margin-top: 20px;">
+            <p>&copy; 2024 Schools Division of Calbayog City. All rights reserved.</p>
+        </footer>
+
+        <script>
+            function searchUser() {
+                const query = document.getElementById("search-input").value;
+                fetch(`/search_user?query=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const result = data.exists ? "User already registered." : "No user exists, please register.";
+                        document.getElementById("search-result").textContent = result;
+                        document.getElementById("search-result").style.color = data.exists ? "lightgreen" : "salmon";
+                    });
+            }
+        </script>
     </div>
-    <footer>
-        <p>&copy; 2024 Schools Division of Calbayog City. All rights reserved.</p>
-    </footer>
+
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>

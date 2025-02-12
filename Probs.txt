@@ -1,4 +1,6 @@
-Next steps:
-
-Aging: deleted generated files 3 months upon submission
-
+Offline Styles for:
+user_dashboard
+applications_dashboard
+change_password_user
+print_documents
+nav bar

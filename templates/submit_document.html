@@ -1,36 +1,51 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Submit Application</h2>
-<form id="documentForm">
-    <div class="form-group">
-        <label for="document_type">Document Type:</label>
-        <select id="document_type" name="document_type" class="form-control" required>
-            <option value="Travel Authority">Travel Authority</option>
-            <option value="CTO Application">CTO Application</option>
-            <option value="Leave Application">Leave Application</option>
-        </select>
+<div class="container mt-5">
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h2 class="mb-0">Submit Application</h2>
+        </div>
+        <div class="card-body">
+            <form id="documentForm">
+                <div class="form-group mb-3">
+                    <label for="document_type" class="form-label">Document Type:</label>
+                    <select id="document_type" name="document_type" class="form-select" required aria-label="Document Type">
+                        <option value="" disabled selected>Select Document Type</option>
+                        <option value="Travel Authority">Travel Authority</option>
+                        <option value="CTO Application">CTO Application</option>
+                        <option value="Leave Application">Leave Application</option>
+                    </select>
+                </div>
+                
+                <!-- New Division Dropdown -->
+                <div class="form-group mb-3">
+                    <label for="division" class="form-label">Division:</label>
+                    <select id="division" name="division" class="form-select" required aria-label="Division">
+                        <option value="" disabled selected>Select Division</option>
+                        <option value="OSDS">OSDS</option>
+                        <option value="SGOD">SGOD</option>
+                        <option value="CID">CID</option>
+                    </select>
+                </div>
+
+                <button type="button" class="btn btn-primary" onclick="redirectToForm()">Next</button>
+
+            </form>
+        </div>
     </div>
-    
-    <!-- New Division Dropdown -->
-    <div class="form-group">
-        <label for="division">Division:</label>
-        <select id="division" name="division" class="form-control" required>
-            <option value="OSDS">OSDS</option>
-            <option value="SGOD">SGOD</option>
-            <option value="CID">CID</option>
-        </select>
-    </div>
+</div>
+<a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary ms-2">Back to My Dashboard</a>
 
-    <button type="button" class="btn btn-primary" onclick="redirectToForm()">Next</button>
-</form>
-
-
-
-<a href="{{ url_for('logout') }}" class="btn btn-secondary mt-3">Logout</a>
-<a href="{{ url_for('user_dashboard') }}" class="btn btn-secondary mt-3">Back to My Dashboard</a>
 <script>
 function redirectToForm() {
     const documentType = document.getElementById('document_type').value;
+    const division = document.getElementById('division').value;
+
+    if (!documentType || !division) {
+        alert('Please select both Document Type and Division.');
+        return;
+    }
+
     let redirectUrl = '';
 
     switch(documentType) {
