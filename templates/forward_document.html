@@ -123,13 +123,18 @@
         }
     }
 
+    let currentSuggestionIndex = -1;
+
     async function searchNames() {
         const input = document.getElementById("forwarded_to").value;
         const suggestionsBox = document.getElementById("autocomplete-suggestions");
+        const forwardButton = document.getElementById("forwardButton");
 
         if (input.length < 1) {
             suggestionsBox.innerHTML = '';
             suggestionsBox.classList.remove("active");
+            forwardButton.disabled = true; // Disable the button
+            currentSuggestionIndex = -1;
             return;
         }
 
@@ -139,7 +144,9 @@
             const usernames = await response.json();
 
             suggestionsBox.innerHTML = '';
-            usernames.forEach(username => {
+            let isValidUser = false;
+
+            usernames.forEach((username, index) => {
                 const div = document.createElement("div");
                 div.classList.add("autocomplete-suggestion");
                 div.textContent = username;
@@ -148,9 +155,15 @@
                     document.getElementById("forwarded_to").value = username;
                     suggestionsBox.innerHTML = '';
                     suggestionsBox.classList.remove("active");
+                    forwardButton.disabled = false; // Enable the button
+                    currentSuggestionIndex = -1;
                 };
 
                 suggestionsBox.appendChild(div);
+
+                if (username === input) {
+                    isValidUser = true;
+                }
             });
 
             if (usernames.length > 0) {
@@ -159,9 +172,41 @@
                 suggestionsBox.classList.remove("active");
             }
 
+            forwardButton.disabled = !isValidUser; // Enable if valid user
+            currentSuggestionIndex = -1;
+
         } catch (error) {
             console.error("Error fetching usernames:", error);
+            forwardButton.disabled = true; // Disable the button on error
         }
+    }
+
+    document.getElementById("forwarded_to").addEventListener("keydown", function (event) {
+        const suggestionsBox = document.getElementById("autocomplete-suggestions");
+        const suggestions = suggestionsBox.getElementsByClassName("autocomplete-suggestion");
+
+        if (event.key === "ArrowDown") {
+            event.preventDefault();
+            if (currentSuggestionIndex < suggestions.length - 1) {
+                currentSuggestionIndex++;
+                highlightSuggestion(suggestions, currentSuggestionIndex);
+            }
+        } else if (event.key === "ArrowUp") {
+            event.preventDefault();
+            if (currentSuggestionIndex > 0) {
+                currentSuggestionIndex--;
+                highlightSuggestion(suggestions, currentSuggestionIndex);
+            }
+        } else if (event.key === "Tab" && currentSuggestionIndex >= 0) {
+            event.preventDefault();
+            suggestions[currentSuggestionIndex].click();
+        }
+    });
+
+    function highlightSuggestion(suggestions, index) {
+        Array.from(suggestions).forEach((suggestion, i) => {
+            suggestion.classList.toggle("highlight", i === index);
+        });
     }
 </script>
 
@@ -204,8 +249,11 @@
             <label for="comments">Comments:</label>
             <textarea class="form-control" id="comments" name="comments" rows="3"></textarea>
         </div>
-        <button type="submit" class="btn btn-primary">Forward</button>
+        <button type="submit" id="forwardButton" class="btn btn-primary" disabled>Forward</button>
+         <a href="{{ url_for('user_dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
     </form>
-</div>
+
+
+
 
 {% endblock %}

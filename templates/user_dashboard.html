@@ -182,7 +182,7 @@
         }
     
         .table th.wrap, .table td.wrap {
-            max-width: 100px; /* Adjust the width as needed */
+            max-width: 180px; /* Increased width for better fit */
             word-wrap: break-word;
             white-space: normal;
         }
@@ -264,7 +264,7 @@
             .btn-forward:disabled {
             display: none;
             }
-
+    
     </style>
     
 
@@ -272,46 +272,56 @@
 
 <body>
     <div class="topbar">
-        <div class="form-inline">
-            <span>User Info:</span>
-            <form method="POST" action="{{ url_for('update_user_info') }}" class="form-inline">
-                <div class="form-group">
-                    <label for="name">Name: </label>
-                    <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control mx-2"
-                        readonly>
-                </div>
-                <div class="form-group">
-                    <label for="position">Position: </label>
-                    <input type="text" id="position" name="position" value="{{ session['position'] }}"
-                        class="form-control mx-2" required>
+        <div class="d-flex flex-wrap justify-content-between align-items-center">
+            <!-- User Info Section -->
+            <div class="user-info-section d-flex flex-wrap align-items-center">
+                <form method="POST" action="{{ url_for('update_user_info') }}" class="form-inline flex-wrap">
+                    <div class="form-group mx-2 mb-2">
+                        <label for="name" class="mr-2">Name:</label>
+                        <input type="text" id="name" name="name" value="{{ session['username'] }}" class="form-control" readonly>
                     </div>
-                    <select id="division" name="division" class="form-control mx-2" required onchange="filterOffices()">
-                        <option value="">Select Division</option>
-                        <option value="OSDS" {{ 'selected' if session['division'] == 'OSDS' else '' }}>OSDS</option>
-                        <option value="SGOD" {{ 'selected' if session['division'] == 'SGOD' else '' }}>SGOD</option>
-                        <option value="CID" {{ 'selected' if session['division'] == 'CID' else '' }}>CID</option>
-                    </select>
-                
-                    <div class="form-group">
-                        <label for="office">Office: </label>
-                        <select id="office" name="office" class="form-control mx-2" required>
+                    <div class="form-group mx-2 mb-2">
+                        <label for="position" class="mr-2">Position:</label>
+                        <input type="text" id="position" name="position" value="{{ session['position'] }}" class="form-control" required>
+                    </div>
+                    <div class="form-group mx-2 mb-2">
+                        <label for="division" class="mr-2">Division:</label>
+                        <select id="division" name="division" class="form-control" required onchange="filterOffices()">
+                            <option value="">Select Division</option>
+                            <option value="OSDS" {{ 'selected' if session['division'] == 'OSDS' else '' }}>OSDS</option>
+                            <option value="SGOD" {{ 'selected' if session['division'] == 'SGOD' else '' }}>SGOD</option>
+                            <option value="CID" {{ 'selected' if session['division'] == 'CID' else '' }}>CID</option>
+                        </select>
+                    </div>
+                    <div class="form-group mx-2 mb-2">
+                        <label for="office" class="mr-2">Office:</label>
+                        <select id="office" name="office" class="form-control" required>
                             <option value="">Select Office</option>
                             {% for office in officeOptions %}
                                 <option value="{{ office }}" {{ 'selected' if session['office'] == office else '' }}>{{ office }}</option>
                             {% endfor %}
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label for="salary">Salary: </label>
-                        <input type="text" id="salary" name="salary" value="{{ session['salary'] }}" class="form-control mx-3" required oninput="formatSalary(this)">
-                    </div>                    
-                <button type="submit" class="btn btn-danger">Update Info</button>
-            </form>
+                    <div class="form-group mx-2 mb-2">
+                        <label for="salary" class="mr-2">Salary:</label>
+                        <input type="text" id="salary" name="salary" value="{{ session['salary'] }}" class="form-control" required oninput="formatSalary(this)">
+                    </div>
+                    <div class="form-group mx-2 mb-2">
+                        <label for="email" class="mr-2">Email:</label>
+                        <input type="text" id="email" name="email" value="{{ session['email'] }}" class="form-control">
+                    </div>
+                    <button type="submit" class="btn btn-danger mx-2 mb-2">Update Info</button>
+                </form>
+            </div>
         </div>
-        <div class="btn-group">
-            <a href="{{ url_for('applications_dashboard') }}" class="btn btn-custom">Submit Application</a>
-            <a href="{{ url_for('document_tracker') }}" class="btn btn-custom">Submit Documents</a>
-            <a href="{{ url_for('change_password_user') }}" class="btn btn-warning">Change Password</a>
+    </div>
+
+    <div class="topbar mt-3">
+        <div class="action-buttons-section d-flex justify-content-between">
+            <a href="{{ url_for('applications_dashboard') }}" class="btn btn-primary btn-sm mx-1 flex-fill text-center">Submit Application</a>
+            <a href="{{ url_for('document_tracker') }}" class="btn btn-secondary btn-sm mx-1 flex-fill text-center">Submit Documents</a>
+            <a href="{{ url_for('service_record') }}" class="btn btn-info btn-sm mx-1 flex-fill text-center">Service Record</a>
+            <a href="{{ url_for('change_password_user') }}" class="btn btn-warning btn-sm mx-1 flex-fill text-center">Change Password</a>
         </div>
     </div>
 
@@ -391,9 +401,9 @@
                                         data-type="cto">Cancel</button>
                                     {% endif %}
                                     {% if application[7] != 'Rejected' %}
-                                    <a href="{{ url_for('download_application', app_type='cto', app_id=application[0]) }}" class="btn btn-info btn-sm">
+                                    <!-- <a href="{{ url_for('download_application', app_type='cto', app_id=application[0]) }}" class="btn btn-info btn-sm">
                                         <i class="fas fa-save"></i>
-                                    </a>
+                                    </a> -->
                                     {% endif %}
                                 </td>
                                 <td>{{ application[8] }}</td>
@@ -447,9 +457,9 @@
                                         data-type="leave">Cancel</button>
                                     {% endif %}
                                     {% if application[8] != 'Rejected' %}
-                                    <a href="{{ url_for('download_application', app_type='leave', app_id=application[0]) }}" class="btn btn-info btn-sm">
+                                    <!-- <a href="{{ url_for('download_application', app_type='leave', app_id=application[0]) }}" class="btn btn-info btn-sm">
                                         <i class="fas fa-save"></i>
-                                    </a>
+                                    </a> -->
                                     {% endif %}
                                 </td>                             
                                 <td>{{ application[9] }}</td>
@@ -502,9 +512,9 @@
                                         data-type="travel">Cancel</button>
                                     {% endif %}
                                     {% if application[8] != 'Rejected' %}
-                                    <a href="{{ url_for('download_application', app_type='travel', app_id=application[0]) }}" class="btn btn-info btn-sm">
+                                    <!-- <a href="{{ url_for('download_application', app_type='travel', app_id=application[0]) }}" class="btn btn-info btn-sm">
                                         <i class="fas fa-save"></i>
-                                    </a>
+                                    </a> -->
                                     {% endif %}
 
                                 </td>         
@@ -523,10 +533,7 @@
     <div class="container-fluid">
         <ul class="nav nav-tabs" id="applicationTabs" role="tablist">
             <li class="nav-item">
-                <a class="nav-link active" id="track-tab" data-toggle="tab" href="#track" role="tab" aria-controls="track" aria-selected="true">Document Tracker</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" id="docsub-tab" data-toggle="tab" href="#submitted" role="tab" aria-controls="submitted" aria-selected="false">Documents Submitted</a>
+                <a class="nav-link active" id="docsub-tab" data-toggle="tab" href="#submitted" role="tab" aria-controls="submitted" aria-selected="false">Documents Submitted</a>
             </li>
             <li class="nav-item">
                 <a class="nav-link" id="docrec-tab" data-toggle="tab" href="#received" role="tab" aria-controls="received" aria-selected="false">
@@ -536,9 +543,12 @@
                     </span>
                 </a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link" id="track-tab" data-toggle="tab" href="#track" role="tab" aria-controls="track" aria-selected="true">Document Tracker</a>
+            </li>
         </ul>
         <div class="tab-content" id="applicationTabsContent">
-            <div class="tab-pane fade show active" id="track" role="tabpanel" aria-labelledby="track-tab">
+            <div class="tab-pane fade" id="track" role="tabpanel" aria-labelledby="track-tab">
                 <div class="card">
                     <div class="card-body">
                         <h4>Document Tracker Summary</h4>
@@ -565,55 +575,41 @@
             </div>
 
             <!-- Documents Submitted Table -->
-            <div class="tab-pane fade" id="submitted" role="tabpanel" aria-labelledby="docsub-tab">
+            <div class="tab-pane fade show active" id="submitted" role="tabpanel" aria-labelledby="docsub-tab">
                 <div class="table-container">
-                    <h4>Documents Submitted</h4>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h4>Documents Submitted</h4>
+                        <input type="text" id="submittedSearch" class="form-control" style="max-width: 300px;" placeholder="Search Documents...">
+                    </div>
                     <table id="submittedDocumentsTable" class="table table-bordered table-hover">
                         <thead>
                             <tr>
-                                <th class="wrap">Cancel/ Completed</th>
-                                <th class="wrap">Forwarded To</th>
-                                <th class="wrap">To Office</th>
-                                <th>Document</th>
-                                <th>Document History</th>
+                                <th class="wrap text-center" style="min-width: 120px;">Cancel/Completed</th>
+                                <th class="wrap text-center" style="min-width: 140px;">Forwarded To</th>
+                                <th class="wrap text-center" style="min-width: 140px;">To Office</th>
+                                <th class="text-center" style="min-width: 180px;">Document</th>
+                                <th class="text-center" style="min-width: 150px;">Document History</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for doc in submitted_documents %}
-                            <tr id="doc-row-{{ doc[0] }}"> <!-- Add unique ID for each row -->
+                            <tr id="doc-row-{{ doc[0] }}">
                                 <td>
                                     <button class="btn btn-danger btn-sm btn-delete" data-id="{{ doc[0] }}">
                                         <i class="fas fa-trash-alt"></i>
                                     </button>
                                 </td>
                                 <td class="wrap">{{ doc[2] }}</td>
-                                <td class="wrap">{{ forwarded_to_offices[doc[2]] }}</td> 
-                                <td></small>Document Type: {{ doc[1] }}<br></small>Details: {{ doc[4] }}</small><br><small>Created at: {{ doc[5] }}</small></td>
+                                <td class="wrap">{{ doc[3] }}</td> 
                                 <td>
-                                    <button type="button" class="btn btn-secondary" data-toggle="tooltip" title="
-                                        {% if receiving_histories[doc[0]] %}
-                                        <strong>Receiving History:</strong><br>
-                                        {% for receive in receiving_histories[doc[0]] | reverse %}
-                                            Received by: {{ receive[0] }}<br>Office Received: {{ receive[1] }}<br>Date Received: {{ receive[2] }}<hr>
-                                        {% endfor %}
-                                        {% else %}
-                                            No receiving history.
-                                        {% endif %}
-                                        
-                                        {% if forwarding_histories[doc[0]] %}
-                                            <strong>Forwarding History:</strong><br>
-                                            {% for history in forwarding_histories[doc[0]]%}
-                                                Forwarded To: {{ history[1] }}<br>Forwarded by: {{ history[0] }}<br>At: {{ history[3] }}<hr>
-                                            {% endfor %}
-                                        {% else %}
-                                            No forwarding history.<br>
-                                        {% endif %}
-                                    ">
+                                    <small>Document Type: {{ doc[1] }}<br>Details: {{ doc[4] }}</small><br>
+                                    <small>Created at: {{ doc[5] }}</small>
+                                </td>
+                                <td>
                                     <a href="{{ url_for('document_history', document_id=doc[0]) }}" class="btn btn-secondary" title="View History">
                                         <i class="fas fa-info-circle"></i>
                                     </a>
-                                    </button>
-                                </td>                                   
+                                </td>
                             </tr>
                             {% endfor %}
                         </tbody>
@@ -625,6 +621,7 @@
         <div class="tab-pane fade" id="received" role="tabpanel" aria-labelledby="docrec-tab">
             <div class="table-container">
                 <h4>Documents Received</h4>
+                <button class="btn btn-secondary mb-3" onclick="window.location.href='/documents_history'">Documents History</button>
                 <table id="receivedDocumentsTable" class="table table-bordered table-hover">
                     <thead>
                         <tr>
@@ -634,7 +631,8 @@
                             <th>Office</th>
                             <th>Document Type</th>
                             <th>Details</th>
-                            <th>Actions</th> 
+                            <th>Actions</th>
+                            <th>Comments</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -649,30 +647,34 @@
                             <td>
                                 <!-- Receive Button: Visible when document has not been received -->
                                 <button type="button" class="btn btn-success" 
-                                id="receiveButton-{{ doc[0] }}"
-                                {% if doc[8] == 1 %} style="display: none;" {% endif %}
-                                onclick="receiveDocument({{ doc[0] }})">
-                                Receive
-                            </button>
-                
-                            <form action="{{ url_for('forward_document') }}" method="POST" style="display: inline;">
-                                <input type="hidden" name="document_id" value="{{ doc[0] }}">
-                                <button type="submit" class="btn btn-primary" 
-                                    id="forwardButton-{{ doc[0] }}"
-                                    {% if doc[8] == 0 %} style="display: none;" {% endif %}>
-                                    Forward
+                                    id="receiveButton-{{ doc[0] }}"
+                                    {% if doc[8] == 1 %} style="display: none;" {% endif %}
+                                    onclick="receiveDocument({{ doc[0] }})">
+                                    Receive
                                 </button>
+                                <form action="{{ url_for('forward_document') }}" method="POST" style="display: inline;">
+                                    <input type="hidden" name="document_id" value="{{ doc[0] }}">
+                                    <button type="submit" class="btn btn-primary" 
+                                        id="forwardButton-{{ doc[0] }}"
+                                        {% if doc[8] == 0 %} style="display: none;" {% endif %}>
+                                        Forward
+                                    </button>
                                 </form>
+                            </td>
+                            <td>
+                                {% set history = forwarding_histories.get(doc[0]) %}
+                                {% if history and history|length > 0 and history[0][2] %}
+                                    {{ history[0][2] }}
+                                {% elif doc|length > 9 and doc[9] %}
+                                    {{ doc[9] }}
+                                {% else %}
+                                    No Comments
+                                {% endif %}
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
                 </table>
-                <div class="text-right mt-3">
-                    <a href="{{ url_for('print_documents') }}" class="btn btn-secondary">
-                        <i class="fa fa-print"></i> Print Received and Forwarded Documents
-                    </a>
-                </div>
             </div>
         </div>
 
@@ -822,7 +824,7 @@
     <script>
         const officeOptions = {
             OSDS: ["Accounting", "Admin", "Budget", "ICT", "Legal", "Office of the ASDS", "Office of the SDS", "Payroll", "Personnel", "Records"],
-            SGOD: ["Education Facilities", "Health", "HRD", "Planning & Research", "SGOD", "SMME", "SMN"],
+            SGOD: ["Education Facilities", "Health", "HRD", "Planning and Research", "SGOD", "SMME", "SMN"],
             CID: ["ALS", "CID", "LR", "PSDS"]
         };
 
@@ -886,6 +888,23 @@
         // Reassemble the formatted value
         input.value = integerPart + (parts[1] ? '.' + parts[1] : '');
     }
+</script>
+
+<script>
+    // Search/filter for Documents Submitted table
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('submittedSearch');
+        if (searchInput) {
+            searchInput.addEventListener('keyup', function() {
+                const filter = searchInput.value.toLowerCase();
+                const rows = document.querySelectorAll('#submittedDocumentsTable tbody tr');
+                rows.forEach(row => {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(filter) ? '' : 'none';
+                });
+            });
+        }
+    });
 </script>
 
 </html>

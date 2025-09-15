@@ -10,6 +10,111 @@
     <title>Document Submission App</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        /* Enhanced GUI styles */
+        body {
+            background: #f8fafc;
+        }
+        .container {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+            padding: 32px 24px;
+        }
+        .table thead th {
+            position: sticky;
+            top: 0;
+            background: #343a40;
+            color: #fff;
+            z-index: 2;
+        }
+        .table-striped tbody tr:nth-of-type(odd) {
+            background-color: #f2f6fa;
+        }
+        .table-hover tbody tr:hover {
+            background-color: #e2eafc;
+            transition: background 0.2s;
+        }
+        .btn {
+            margin-bottom: 4px;
+        }
+        .btn-info, .btn-warning, .btn-danger {
+            min-width: 110px;
+        }
+        .letter-indexes {
+            margin-top: 24px;
+        }
+        .letter-indexes .btn {
+            margin: 2px 1px;
+            width: 36px;
+            padding: 4px 0;
+            font-weight: 500;
+            border-radius: 50%;
+            transition: background 0.2s, color 0.2s;
+        }
+        .letter-indexes .btn:hover, .letter-indexes .btn.active {
+            background: #007bff;
+            color: #fff;
+        }
+        .form-inline input[type="text"] {
+            min-width: 260px;
+        }
+        h2 {
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        /* Enhanced pagination styles */
+        .pagination-wrap {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2px;
+            margin: 0;
+        }
+        .pagination {
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 0;
+        }
+        .pagination .page-item {
+            margin-bottom: 4px;
+        }
+        .pagination .page-item .page-link {
+            color: #007bff;
+            border-radius: 50% !important;
+            margin: 0 3px;
+            width: 38px;
+            height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 500;
+            font-size: 1.1rem;
+            transition: background 0.2s, color 0.2s;
+        }
+        .pagination .page-item.active .page-link,
+        .pagination .page-item .page-link:hover {
+            background: #007bff;
+            color: #fff;
+            border-color: #007bff;
+        }
+        .pagination .page-link:focus {
+            box-shadow: 0 0 0 0.15rem #007bff55;
+        }
+        @media (max-width: 576px) {
+            .container {
+                padding: 12px 2px;
+            }
+            .form-inline input[type="text"] {
+                min-width: 120px;
+            }
+            .pagination .page-item .page-link {
+                width: 30px;
+                height: 30px;
+                font-size: 0.95rem;
+            }
+        }
+    </style>
 </head>
 <body>
        
@@ -17,7 +122,7 @@
         <h2 class="mb-4 text-center">User Management</h2>
 
         <!-- Search Field -->
-        <form method="GET" action="{{ url_for('view_users') }}" class="form-inline mb-4">
+        <form method="GET" action="{{ url_for('view_users') }}" class="form-inline mb-4 justify-content-center">
             <input type="text" name="search" class="form-control mr-2" placeholder="Search by Name or Username" value="{{ request.args.get('search', '') }}">
             <button type="submit" class="btn btn-primary">Search</button>
         </form>
@@ -57,38 +162,47 @@
                     </tr>
                     {% endfor %}
                 </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="7" class="p-0">
+                            <div class="pagination-wrap py-2">
+                                <ul class="pagination">
+                                    {% if page > 1 %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('view_users', page=page-1) }}" aria-label="Previous">
+                                            <span aria-hidden="true">«</span>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                    {# Multi-row pagination: 10 per row #}
+                                    {% set per_row = 10 %}
+                                    {% for p in range(1, total_pages+1) %}
+                                        {% if (p-1) % per_row == 0 and p != 1 %}
+                                            </ul><ul class="pagination">
+                                        {% endif %}
+                                        <li class="page-item {% if p == page %}active{% endif %}">
+                                            <a class="page-link" href="{{ url_for('view_users', page=p) }}">{{ p }}</a>
+                                        </li>
+                                    {% endfor %}
+                                    {% if page < total_pages %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="{{ url_for('view_users', page=page+1) }}" aria-label="Next">
+                                            <span aria-hidden="true">»</span>
+                                        </a>
+                                    </li>
+                                    {% endif %}
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
-
-        <!-- Pagination -->
-        <nav aria-label="User Pagination" class="mt-4">
-            <ul class="pagination justify-content-center">
-                {% if page > 1 %}
-                <li class="page-item">
-                    <a class="page-link" href="{{ url_for('view_users', page=page-1) }}" aria-label="Previous">
-                        <span aria-hidden="true">«</span>
-                    </a>
-                </li>
-                {% endif %}
-                {% for p in range(1, total_pages+1) %}
-                <li class="page-item {% if p == page %}active{% endif %}">
-                    <a class="page-link" href="{{ url_for('view_users', page=p) }}">{{ p }}</a>
-                </li>
-                {% endfor %}
-                {% if page < total_pages %}
-                <li class="page-item">
-                    <a class="page-link" href="{{ url_for('view_users', page=page+1) }}" aria-label="Next">
-                        <span aria-hidden="true">»</span>
-                    </a>
-                </li>
-                {% endif %}
-            </ul>
-        </nav>
 
         <!-- Letter Indexes -->
         <div class="letter-indexes mt-4 text-center">
             {% for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' %}
-            <a href="{{ url_for('view_users', letter=letter) }}" class="btn btn-outline-primary">{{ letter }}</a>
+            <a href="{{ url_for('view_users', letter=letter) }}" class="btn btn-outline-primary {% if request.args.get('letter') == letter %}active{% endif %}">{{ letter }}</a>
             {% endfor %}
         </div>
     </div>

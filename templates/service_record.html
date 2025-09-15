@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center">Service Record</h2>
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Employee Details</h5>
+            <p><strong>Name:</strong> {{ username }}</p>
+            <p><strong>Position:</strong> {{ user_details[0] }}</p>
+            <p><strong>Division:</strong> {{ user_details[1] }}</p>
+            <p><strong>Office:</strong> {{ user_details[2] }}</p>
+            <p><strong>Salary:</strong> {{ user_details[3] }}</p>
+        </div>
+    </div>
+    <div class="text-center mt-4">
+        <img src="{{ url_for('static', filename='programmer_under_construction.gif') }}" alt="Under Construction" style="max-width:300px; width:100%; margin-bottom:15px;">
+        <div class="flashing-text" style="font-size:1.2em; font-weight:bold; margin-bottom:20px;">
+            This page is under construction.
+        </div>
+        <a href="{{ url_for('user_dashboard') }}" class="btn btn-primary">Back to Dashboard</a>
+    </div>
+</div>
+<style>
+.flashing-text {
+    animation: flashColor 1s infinite;
+}
+@keyframes flashColor {
+    0%, 100% { color: red; }
+    50% { color: green; }
+}
+</style>
+{% endblock %}

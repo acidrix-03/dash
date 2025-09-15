@@ -61,6 +61,11 @@
             word-break: break-word;
             white-space: normal;
         }
+        /* Remove text wrapping for Document Type column */
+        .table th.wrap-text, .table td.wrap-text {
+            white-space: nowrap;
+            max-width: none;
+        }
         .btn-container {
             display: flex;
             justify-content: space-between;
@@ -97,8 +102,8 @@
         <!-- Documents Received Section -->
         <h4>Documents Received</h4>
         <div class="table-container">
-            <table class="table table-bordered table-hover table-striped" id="receivedTable">
-                <thead class="thead-light">
+            <table class="table table-bordered table-hover table-striped table-responsive-md" id="receivedTable">
+                <thead class="thead-dark">
                     <tr>
                         <th>Name</th>
                         <th>Position</th>
@@ -120,7 +125,7 @@
                         <td class="wrap-text">{{ doc[5] or 'N/A' }}</td>
                         <td>{{ doc[6] or 'N/A' }}</td>
                         <td>{{ doc[7] or 'N/A' }}</td>
-                        <td>{{ doc[8] or 'N/A' }}</td> <!-- Date Received -->
+                        <td>{{ doc[8] or 'N/A' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -130,8 +135,8 @@
         <!-- Documents Forwarded Section -->
         <h4>Documents Forwarded</h4>
         <div class="table-container">
-            <table class="table table-bordered table-hover table-striped" id="forwardedTable">
-                <thead class="thead-light">
+            <table class="table table-bordered table-hover table-striped table-responsive-md" id="forwardedTable">
+                <thead class="thead-dark">
                     <tr>
                         <th>Name</th>
                         <th>Position</th>
@@ -152,8 +157,8 @@
                         <td>{{ doc[4] or 'N/A' }}</td>
                         <td class="wrap-text">{{ doc[5] or 'N/A' }}</td>
                         <td>{{ doc[6] or 'N/A' }}</td>
-                        <td>{{ doc[7] or 'N/A' }}</td> <!-- Forwarded To -->
-                        <td>{{ doc[8] or 'N/A' }}</td> <!-- Date Forwarded -->
+                        <td>{{ doc[7] or 'N/A' }}</td>
+                        <td>{{ doc[8] or 'N/A' }}</td>
                     </tr>
                     {% endfor %}
                 </tbody>

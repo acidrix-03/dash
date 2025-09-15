@@ -87,7 +87,7 @@
 </head>
 <body>
     <div class="container">
-        <h2>Document History for ID: {{ document_id }}</h2>
+        <h2>Document History</h2>
 
         <!-- Document Details Section -->
         <div class="document-details">
@@ -106,15 +106,19 @@
                     <p><strong>Office Received:</strong> {{ receive[1] }}</p>
                     <p><strong>Date Received:</strong> {{ receive[2] }}</p>
 
-                    {% set matched_history = forwarding_history | selectattr('0', 'equalto', receive[0]) | list %}
-                    {% if matched_history %}
-                        {% for history in matched_history %}
-                            <div class="matched-history">
-                                <p><strong>Forwarded To:</strong> {{ history[1] }}</p>
-                                <p><strong>Forwarded by:</strong> {{ history[0] }}</p>
-                                <p><strong>Date:</strong> {{ history[3] }}</p>
-                            </div>
-                        {% endfor %}
+                    {# Find the first forward after this receive by the same user #}
+                    {% set ns = namespace(fwd=None) %}
+                    {% for fwd in forwarding_history %}
+                        {% if ns.fwd is none and fwd[0] == receive[0] and fwd[3] > receive[2] %}
+                            {% set ns.fwd = fwd %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if ns.fwd %}
+                        <div class="matched-history">
+                            <p><strong>Forwarded To:</strong> {{ ns.fwd[1] }}</p>
+                            <p><strong>Forwarded by:</strong> {{ ns.fwd[0] }}</p>
+                            <p><strong>Date:</strong> {{ ns.fwd[3] }}</p>
+                        </div>
                     {% else %}
                         <p><em>No forwarding history available for this recipient.</em></p>
                     {% endif %}

@@ -7,9 +7,10 @@
     <style>
         body {
             display: flex;
-            height: 100vh; /* Full height */
-            background-color: #121212; /* Dark background */
-            color: #f1f1f1; /* Light text */
+            height: 100vh;
+            background: linear-gradient(135deg, #181a1b 0%, #23272b 100%);
+            color: #f1f1f1;
+            font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
         }
 
         .navbar {
@@ -30,9 +31,9 @@
         }
 
         .sidebar {
-            background: #1f1f1f;
+            background: linear-gradient(135deg, #23272b 60%, #181a1b 100%);
             padding: 20px;
-            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 2px 0 12px rgba(0,0,0,0.18);
             height: calc(100vh - 56px); /* Full height minus navbar height */
             position: fixed;
             top: 56px;
@@ -41,18 +42,31 @@
             transition: all 0.3s ease;
             overflow-y: auto; /* Scrollable if content exceeds height */
             color: #f1f1f1;
+            border-right: 1px solid #23272b;
         }
 
         .sidebar h3 {
             color: #f1f1f1;
             margin-bottom: 20px;
+            letter-spacing: 1px;
+            font-weight: 700;
         }
 
-        .sidebar a {
+        .sidebar a, .sidebar button {
             margin-bottom: 15px;
             padding: 10px 15px;
             font-size: 16px;
             color: #f1f1f1;
+            background: rgba(40,44,52,0.7);
+            border: none;
+            border-left: 4px solid transparent;
+            transition: background 0.2s, border-left 0.2s;
+        }
+
+        .sidebar a:hover, .sidebar button:hover {
+            background: #212529;
+            border-left: 4px solid #00d4ff;
+            color: #00d4ff;
         }
 
         .btn-block {
@@ -60,6 +74,8 @@
             transition: background-color 0.3s;
             background-color: #333;
             color: #f1f1f1;
+            font-weight: 500;
+            letter-spacing: 0.5px;
         }
 
         .btn-block:hover {
@@ -76,10 +92,12 @@
         .content {
             margin-left: 250px;
             margin-top: 56px;
-            padding: 20px;
+            padding: 32px 32px 32px 32px;
             flex-grow: 1;
-            transition: margin-left 0.3s ease;
-            background-color: #121212;
+            transition: margin-left 0.3s, background 0.3s;
+            background: linear-gradient(135deg, #23272b 0%, #181a1b 100%);
+            min-height: 100vh;
+            box-shadow: 0 0 32px 0 #00000033;
         }
 
         .content.collapsed {
@@ -91,86 +109,148 @@
             bottom: 20px;
             left: 20px;
             z-index: 1001;
-            background-color: #333;
-            color: white;
-            border: none;
-            padding: 10px;
+            background: linear-gradient(135deg, #23272b 60%, #181a1b 100%);
+            border: 2px solid #00d4ff;
+            color: #00d4ff;
             border-radius: 50%;
             box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            transition: background 0.2s, color 0.2s;
+        }
+
+        .toggle-sidebar-btn:hover {
+            background: #00d4ff;
+            color: #23272b;
         }
 
         .card {
-        background-color: #1f1f1f;
-        border: none;
-        border-radius: 15px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s ease-in-out;
-        text-align: center;
-        padding: 10px; /* Reduced padding */
-        color: #f1f1f1;
-        width: 200px; /* Adjust the width */
-        margin: 10px auto; /* Center the card and add margin */
+            background: linear-gradient(135deg, #23272b 60%, #181a1b 100%);
+            border: none;
+            border-radius: 18px;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+            text-align: center;
+            padding: 18px 10px;
+            color: #f1f1f1;
+            width: 220px;
+            margin: 10px auto;
+            transition: transform 0.18s, box-shadow 0.18s;
+            border-top: 3px solid #00d4ff;
         }
 
         .card:hover {
-            transform: translateY(-5px); /* Reduced hover effect */
-        }
-
-        .card-body {
-            padding: 10px; /* Reduced padding */
-        }
-
-        .card h5 {
-            font-size: 1rem; /* Reduced font size */
-            font-weight: bold;
-            color: #f1f1f1;
-        }
-
-        .card p {
-            font-size: 1.2rem; /* Reduced font size */
-            font-weight: bold;
+            transform: translateY(-6px) scale(1.03);
+            box-shadow: 0 8px 32px rgba(0,212,255,0.12);
         }
 
         .card-icon {
-            font-size: 2rem; /* Reduced icon size */
-            color: #007bff;
+            font-size: 2.2rem;
+            color: #00d4ff;
+            filter: drop-shadow(0 0 6px #00d4ff55);
+        }
+
+        .card h5 {
+            font-size: 1.08rem;
+            font-weight: bold;
+            color: #00d4ff;
+            margin-top: 10px;
+        }
+
+        .card p {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #fff;
         }
 
         .modal-header {
-            background-color: #333;
-            color: white;
+            background: linear-gradient(90deg, #23272b 60%, #181a1b 100%);
+            color: #00d4ff;
+            border-bottom: 2px solid #00d4ff;
         }
 
         .modal-footer .btn-danger {
-            background-color: #dc3545;
+            background: linear-gradient(90deg, #ff416c 0%, #ff4b2b 100%);
+            border: none;
         }
 
         .btn-danger:hover {
-            background-color: #c82333;
+            background: linear-gradient(90deg, #ff4b2b 0%, #ff416c 100%);
         }
 
         .form-group label {
             font-weight: bold;
-            color: #f1f1f1;
+            color: #00d4ff;
         }
 
-        .custom-file-label {
-            background-color: #333;
-            color: #f1f1f1;
+        .custom-file-label, .custom-file-input {
+            background: #23272b;
+            color: #00d4ff;
+            border: 1px solid #00d4ff;
         }
 
-        .custom-file-input {
-            background-color: #333;
-            color: #f1f1f1;
+        /* Neon glow effect for headings */
+        h2, h3, h4, h5 {
+            text-shadow: 0 0 8px #00d4ff88, 0 0 2px #00d4ff44;
         }
 
-        .btn-clear {
-            margin-top: 20px;
-            background-color: #dc3545;
-            color: white;
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 10px;
+            background: #23272b;
         }
-        .btn-clear:hover {
-            background-color: #c82333;
+
+        ::-webkit-scrollbar-thumb {
+            background: #00d4ff55;
+            border-radius: 8px;
+        }
+
+        /* Responsive */
+        @media (max-width: 991px) {
+            .dashboard-stats-table th, .dashboard-stats-table td {
+                font-size: 0.95em;
+                padding: 8px 2px;
+            }
+            .content {
+                padding: 10px;
+            }
+        }
+
+        .dashboard-stats-table {
+            width: 100%;
+            margin: 30px 0 10px 0;
+            background: rgba(24,26,27,0.95);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+            border: 1px solid #23272b;
+        }
+        .dashboard-stats-table th, .dashboard-stats-table td {
+            text-align: center;
+            padding: 18px 12px;
+            color: #e0e0e0;
+            border: none;
+            font-size: 1.08em;
+        }
+        .dashboard-stats-table th {
+            background: linear-gradient(90deg, #23272b 60%, #181a1b 100%);
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: #00d4ff;
+            border-bottom: 2px solid #23272b;
+        }
+        .dashboard-stats-table tr {
+            background: transparent;
+        }
+        .dashboard-stats-table tr:hover {
+            background: #23272b;
+        }
+        .dashboard-stats-table .stat-label {
+            font-weight: 600;
+            color: #00d4ff;
+        }
+        @media (max-width: 991px) {
+            .dashboard-stats-table th, .dashboard-stats-table td {
+                font-size: 0.95em;
+                padding: 8px 2px;
+            }
         }
     </style>
 </head>
@@ -205,7 +285,36 @@
     <!-- Main Content Area -->
     <div class="content" id="content">
         <div class="container mt-5">
-            <h2>Admin Dashboard</h2>
+            <h2><i class="fas fa-tachometer-alt"></i> Admin Dashboard</h2>
+
+            <!-- Single-row Dashboard Stats Table -->
+            <table class="dashboard-stats-table mb-4">
+                <thead>
+                    <tr>
+                        {% for stat in stats_row %}
+                            <th>{{ stat.label }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        {% for stat in stats_row %}
+                            <td>
+                                {% if stat.label == "Documents" %}
+                                    <div><span class="stat-label">Total:</span> {{ stat.total }}</div>
+                                    <div><span class="stat-label">Forwarded:</span> {{ stat.forwarded }}</div>
+                                    <div><span class="stat-label">Received:</span> {{ stat.received }}</div>
+                                {% else %}
+                                    <div><span class="stat-label">Total:</span> {{ stat.total }}</div>
+                                    <div><span class="stat-label">Pending:</span> {{ stat.pending }}</div>
+                                    <div><span class="stat-label">Recommending:</span> {{ stat.recommending }}</div>
+                                    <div><span class="stat-label">Approved:</span> {{ stat.approved }}</div>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                </tbody>
+            </table>
 
             <!-- Number of Users Currently Logged In -->
             <div class="row mt-4">
@@ -236,6 +345,16 @@
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        // Chart.js theme for dark/tech look
+        Chart.defaults.color = "#00d4ff";
+        Chart.defaults.plugins.legend.labels.color = "#00d4ff";
+        Chart.defaults.plugins.title.color = "#00d4ff";
+        Chart.defaults.plugins.tooltip.backgroundColor = "#23272b";
+        Chart.defaults.plugins.tooltip.titleColor = "#00d4ff";
+        Chart.defaults.plugins.tooltip.bodyColor = "#fff";
+        Chart.defaults.plugins.tooltip.borderColor = "#00d4ff";
+        Chart.defaults.plugins.tooltip.borderWidth = 1;
+
         const ctxApplications = document.getElementById('applicationsChart').getContext('2d');
         const applicationsChart = new Chart(ctxApplications, {
             type: 'bar',
@@ -244,18 +363,24 @@
                 datasets: [
                     {
                         label: 'Total',
-                        data: [{{ total_cto }}, {{ total_leave }}, {{ total_travel }}],
-                        backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                        data: [{{ stats_row[0].total }}, {{ stats_row[1].total }}, {{ stats_row[2].total }}],
+                        backgroundColor: 'rgba(0,212,255,0.7)',
+                        borderColor: '#00d4ff',
+                        borderWidth: 2
                     },
                     {
                         label: 'Pending',
-                        data: [{{ pending_cto }}, {{ pending_leave }}, {{ pending_travel }}],
-                        backgroundColor: 'rgba(255, 206, 86, 0.6)',
+                        data: [{{ stats_row[0].pending }}, {{ stats_row[1].pending }}, {{ stats_row[2].pending }}],
+                        backgroundColor: 'rgba(255, 206, 86, 0.7)',
+                        borderColor: '#ffc107',
+                        borderWidth: 2
                     },
                     {
                         label: 'Approved',
-                        data: [{{ approved_cto }}, {{ approved_leave }}, {{ approved_travel }}],
-                        backgroundColor: 'rgba(75, 192, 192, 0.6)',
+                        data: [{{ stats_row[0].approved }}, {{ stats_row[1].approved }}, {{ stats_row[2].approved }}],
+                        backgroundColor: 'rgba(40, 255, 120, 0.7)',
+                        borderColor: '#28ff78',
+                        borderWidth: 2
                     },
                 ],
             },
@@ -264,8 +389,19 @@
                 plugins: {
                     legend: {
                         position: 'top',
+                        labels: { color: '#00d4ff' }
                     },
                 },
+                scales: {
+                    x: {
+                        grid: { color: '#23272b' },
+                        ticks: { color: '#00d4ff' }
+                    },
+                    y: {
+                        grid: { color: '#23272b' },
+                        ticks: { color: '#00d4ff' }
+                    }
+                }
             },
         });
 
@@ -277,15 +413,36 @@
                 datasets: [
                     {
                         label: 'Documents',
-                        data: [{{ total_submitted }}, {{ total_forwarded }}, {{ total_received }}],
-                        backgroundColor: ['#007bff', '#28a745', '#ffc107']
+                        data: [{{ stats_row[3].total }}, {{ stats_row[3].forwarded }}, {{ stats_row[3].received }}],
+                        backgroundColor: [
+                            'rgba(0,212,255,0.7)',
+                            'rgba(40, 255, 120, 0.7)',
+                            'rgba(255, 206, 86, 0.7)'
+                        ],
+                        borderColor: [
+                            '#00d4ff',
+                            '#28ff78',
+                            '#ffc107'
+                        ],
+                        borderWidth: 2
                     }
                 ]
             },
             options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
                 scales: {
+                    x: {
+                        grid: { color: '#23272b' },
+                        ticks: { color: '#00d4ff' }
+                    },
                     y: {
-                        beginAtZero: true
+                        grid: { color: '#23272b' },
+                        ticks: { color: '#00d4ff' }
                     }
                 }
             }

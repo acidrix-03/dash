@@ -335,23 +335,51 @@ def admin_dashboard():
         total_forwarded = conn.execute('SELECT COUNT(*) FROM forwarding_history').fetchone()[0]
         total_received = conn.execute('SELECT COUNT(*) FROM receiving_history').fetchone()[0]
 
-    return render_template('admin_dashboard.html', 
-                           total_cto=total_cto_applications,
-                           total_leave=total_leave_applications,
-                           total_travel=total_travel_authorities,
-                           pending_cto=pending_cto_applications,
-                           pending_leave=pending_leave_applications,
-                           pending_travel=pending_travel_authorities,
-                           recommending_cto=recommending_cto_applications,
-                           recommending_leave=recommending_leave_applications,
-                           recommending_travel=recommending_travel_authorities,
-                           approved_cto=approved_cto_applications,
-                           approved_leave=approved_leave_applications,
-                           approved_travel=approved_travel_authorities,
-                           logged_in_users=len(logged_in_users),  # Pass the number of logged-in users
-                           total_submitted=total_submitted,
-                           total_forwarded=total_forwarded,
-                           total_received=total_received)  # Pass document tracker data
+    # Prepare the list of currently logged-in usernames
+    global logged_in_users, logged_in_usernames
+    if 'logged_in_users' not in globals():
+        logged_in_users = set()
+    if 'logged_in_usernames' not in globals():
+        logged_in_usernames = set()
+    usernames_list = list(logged_in_usernames) if 'logged_in_usernames' in globals() else []
+
+    # Pass all stats as a list of dicts for a single-row table
+    stats_row = [
+        {
+            "label": "CTO Applications",
+            "total": total_cto_applications,
+            "pending": pending_cto_applications,
+            "recommending": recommending_cto_applications,
+            "approved": approved_cto_applications
+        },
+        {
+            "label": "Leave Applications",
+            "total": total_leave_applications,
+            "pending": pending_leave_applications,
+            "recommending": recommending_leave_applications,
+            "approved": approved_leave_applications
+        },
+        {
+            "label": "Travel Authorities",
+            "total": total_travel_authorities,
+            "pending": pending_travel_authorities,
+            "recommending": recommending_travel_authorities,
+            "approved": approved_travel_authorities
+        },
+        {
+            "label": "Documents",
+            "total": total_submitted,
+            "forwarded": total_forwarded,
+            "received": total_received
+        }
+    ]
+
+    return render_template(
+        'admin_dashboard.html',
+        stats_row=stats_row,
+        logged_in_users=len(logged_in_users),
+        logged_in_usernames=usernames_list
+    )
 
 @app.route('/view_users')
 def view_users():
@@ -498,8 +526,8 @@ def import_users_excel():
         with sqlite3.connect('users.db') as conn:
             for _, row in users_df.iterrows():
                 try:
-                    conn.execute('INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)', 
-                                 (row['name'], row['username'], row['password'], row['role']))
+                    conn.execute('INSERT INTO users (name, username, password, role, position, salary) VALUES (?, ?, ?, ?, ?, ?)', 
+                                 (row['name'], row['username'], row['password'], row['role'], row['position'], row['salary']))
                 except sqlite3.IntegrityError:
                     flash(f"User {row['username']} already exists", 'warning')
         
@@ -635,36 +663,36 @@ def submit_and_print_cto_application_excel():
         recommender_position = user_conn.execute('SELECT position FROM users WHERE username = ?', (recommender,)).fetchone()
         recommender_position = recommender_position[0] if recommender_position else "Unknown Position"
 
-    # Path to the template file in static folder
-    template_path = os.path.join('static', 'cto_application_template.xlsx')
+    # # Path to the template file in static folder
+    # template_path = os.path.join('static', 'cto_application_template.xlsx')
 
-    # Load the workbook and fill in the data
-    wb = openpyxl.load_workbook(template_path)
-    sheet = wb.active
-    sheet['I19'] = name  
-    sheet['I20'] = position  
-    sheet['C11'] = start_date  
-    sheet['E11'] = end_date  
-    sheet['E19'] = recommender  
-    sheet['E20'] = recommender_position  
-    submission_date = datetime.now().strftime('%m-%d-%Y')
-    sheet['J22'] = submission_date
+    # # Load the workbook and fill in the data
+    # wb = openpyxl.load_workbook(template_path)
+    # sheet = wb.active
+    # sheet['I19'] = name  
+    # sheet['I20'] = position  
+    # sheet['C11'] = start_date  
+    # sheet['E11'] = end_date  
+    # sheet['E19'] = recommender  
+    # sheet['E20'] = recommender_position  
+    # submission_date = datetime.now().strftime('%m-%d-%Y')
+    # sheet['J22'] = submission_date
 
-    # Ensure the 'generated_files' directory exists
-    output_directory = os.path.join('static', 'generated_files')
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
+    # # Ensure the 'generated_files' directory exists
+    # output_directory = os.path.join('static', 'generated_files')
+    # if not os.path.exists(output_directory):
+    #     os.makedirs(output_directory)
 
-    # Save the file with a unique name (to avoid overwriting)
-    output_filename = f'cto_application_{app_id}_{int(time.time())}.xlsx'
-    output_path = os.path.join(output_directory, output_filename)
-    wb.save(output_path)
-    wb.close()
+    # # Save the file with a unique name (to avoid overwriting) cto_save
+    # output_filename = f'cto_application_{app_id}_{int(time.time())}.xlsx'
+    # output_path = os.path.join(output_directory, output_filename)
+    # wb.save(output_path)
+    # wb.close()
 
     flash('CTO Application Submitted Successfully!', 'success')
-
-    # Redirect to the download route with the generated file's name
-    return redirect(url_for('download_cto_application', filename=output_filename))
+    return redirect(url_for('user_dashboard'))
+    # # Redirect to the download route with the generated file's name
+    # return redirect(url_for('download_cto_application', filename=output_filename))
 
 
 
@@ -763,21 +791,21 @@ def submit_and_print_leave_application_excel():
     submission_date = datetime.now().strftime('%m-%d-%Y')
     sheet['C7'] = submission_date
 
-    # Ensure the 'generated_files' directory exists
-    output_directory = os.path.join('static', 'generated_files')
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
+    # # Ensure the 'generated_files' directory exists
+    # output_directory = os.path.join('static', 'generated_files')
+    # if not os.path.exists(output_directory):
+    #     os.makedirs(output_directory)
 
-    # Save the file with a unique name (to avoid overwriting)
-    output_filename = f'leave_application_{app_id}_{int(time.time())}.xlsx'
-    output_path = os.path.join(output_directory, output_filename)
-    wb.save(output_path)
-    wb.close()
+    # # Save the file with a unique name (to avoid overwriting) leave_save
+    # output_filename = f'leave_application_{app_id}_{int(time.time())}.xlsx'
+    # output_path = os.path.join(output_directory, output_filename)
+    # wb.save(output_path)
+    # wb.close()
 
     flash('Leave Application Submitted Successfully!', 'success')
-
+    return redirect(url_for('user_dashboard'))
     # Redirect to the download route with the generated file's name
-    return redirect(url_for('download_leave_application', filename=output_filename))
+    # return redirect(url_for('download_leave_application', filename=output_filename))
 
 
 @app.route('/download_leave_application/<filename>', methods=['GET'])
@@ -830,8 +858,7 @@ def submit_and_print_travel_authority_excel():
 
     # Fetch recommender's position from the users.db
     with sqlite3.connect('users.db') as user_conn:
-        recommender_position = user_conn.execute('SELECT position FROM users WHERE username = ?', 
-                                                 (recommending_approval,)).fetchone()
+        recommender_position = user_conn.execute('SELECT position FROM users WHERE username = ?', (recommender,)).fetchone()
         recommender_position = recommender_position[0] if recommender_position else "Unknown Position"
 
     # Path to the template file in static folder
@@ -852,21 +879,21 @@ def submit_and_print_travel_authority_excel():
     submission_date = datetime.now().strftime('%m-%d-%Y')
     sheet['D14'] = submission_date
 
-    # Ensure the 'generated_files' directory exists
-    output_directory = os.path.join('static', 'generated_files')
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
+    # # Ensure the 'generated_files' directory exists
+    # output_directory = os.path.join('static', 'generated_files')
+    # if not os.path.exists(output_directory):
+    #     os.makedirs(output_directory)
 
-    # Save the file with a unique name (to avoid overwriting)
-    output_filename = f'travel_authority_{app_id}_{int(time.time())}.xlsx'
-    output_path = os.path.join(output_directory, output_filename)
-    wb.save(output_path)
-    wb.close()
+    # # Save the file with a unique name (to avoid overwriting) travel_save
+    # output_filename = f'travel_authority_{app_id}_{int(time.time())}.xlsx'
+    # output_path = os.path.join(output_directory, output_filename)
+    # wb.save(output_path)
+    # wb.close()
 
     flash('Travel Authority Submitted and Excel Generated Successfully!', 'success')
-
+    return redirect(url_for('user_dashboard'))
     # Redirect to the download route with the generated file's name
-    return redirect(url_for('download_travel_application', filename=output_filename))
+    # return redirect(url_for('download_travel_application', filename=output_filename))
 
 @app.route('/download_travel_application/<filename>', methods=['GET'])
 def download_travel_application(filename):
@@ -1221,12 +1248,12 @@ def dashboard():
 
 
     return render_template('dashboard.html', 
-                           cto_count=len(cto_applications),
-                           leave_count=len(leave_applications),
-                           travel_count=len(travel_authorities),
-                           cto_pending=cto_pending,
-                           leave_pending=leave_pending,
-                           travel_pending=travel_pending,
+                           total_cto=len(cto_applications),
+                           total_leave=len(leave_applications),
+                           total_travel=len(travel_authorities),
+                           pending_cto=cto_pending,
+                           pending_leave=leave_pending,
+                           pending_travel=travel_pending,
                            cto_applications=cto_applications,
                            leave_applications=leave_applications,
                            travel_authorities=travel_authorities)
@@ -1255,7 +1282,6 @@ def recommender_dashboard():
                            cto_applications=cto_applications, 
                            leave_applications=leave_applications, 
                            travel_authorities=travel_authorities)
-
 
 LEAVE_TYPE_MAP = {
     "1": 'Vacation Leave',
@@ -1424,7 +1450,15 @@ def add_office_and_salary_columns():
             conn.execute('ALTER TABLE users ADD COLUMN salary INTEGER')
         except sqlite3.OperationalError:
             print("Column 'salary' already exists.")
-        
+
+        # Add 'email' column if it doesn't already exist
+        try:
+            conn.execute('ALTER TABLE users ADD COLUMN email TEXT')
+            print("Column 'email' added to users table.")
+        except sqlite3.OperationalError:
+            # Column already exists
+            pass
+
         conn.commit()
 
 @app.route('/update_user_info', methods=['POST'])
@@ -1441,15 +1475,16 @@ def update_user_info():
     salary = request.form.get('salary')
     position = request.form.get('position')
     division = request.form.get('division')
+    email = request.form.get('email')  # Capture email from form
 
     try:
         # Connect to the database and update user information
         with sqlite3.connect('users.db') as conn:
-            cursor = conn.cursor()  # Initialize the cursor without using 'with'
+            cursor = conn.cursor()
             cursor.execute('''
                 UPDATE users 
-                SET office = ?, salary = ?, position = ?, division = ? 
-                WHERE id = ?''', (office, salary, position, division, user_id))
+                SET office = ?, salary = ?, position = ?, division = ?, email = ?
+                WHERE id = ?''', (office, salary, position, division, email, user_id))
             conn.commit()
 
         # Update session variables to reflect the changes immediately in the UI
@@ -1457,27 +1492,25 @@ def update_user_info():
             'office': office,
             'salary': salary,
             'position': position,
-            'division': division
+            'division': division,
+            'email': email
         })
 
         flash('User information updated successfully!')
 
     except Exception as e:
         flash(f'Failed to update user information: {e}')
-        return redirect(url_for('user_dashboard'))  # Redirect back to dashboard on failure
+        return redirect(url_for('user_dashboard'))
 
     # Fetch updated user details and applications for the dashboard view
     user_details = fetch_user_details(user_id)
     cto_applications, leave_applications, travel_authorities = fetch_applications(user_id)
 
-    # Render the dashboard with updated information
     return render_template('user_dashboard.html', 
                            user_details=user_details, 
                            cto_applications=cto_applications, 
                            leave_applications=leave_applications, 
                            travel_authorities=travel_authorities)
-
-
 
 def fetch_user_details(user_id):
     with sqlite3.connect('users.db') as conn:
@@ -1583,12 +1616,18 @@ def user_dashboard():
         ''', (username,))
         submitted_documents = cursor.fetchall()
 
-        # Fetch forwarding history and convert timestamps to Manila time
+        # Fetch documents forwarded to the user (including the 'received' status and comments)
+        cursor.execute('''SELECT id, name, position, division, office, document_type, submitted_by, details, received, comments 
+                        FROM documents WHERE forwarded_to = ? AND is_archived = 0''', (username,))
+        received_documents = cursor.fetchall()
+
+        # --- Build a set of all document IDs to fetch histories for ---
+        doc_ids = set(doc[0] for doc in submitted_documents)
+        doc_ids.update(doc[0] for doc in received_documents)
+
         forwarding_histories = {}
         manila_tz = pytz.timezone('Asia/Manila')
-        
-        for doc in submitted_documents:
-            document_id = doc[0]
+        for document_id in doc_ids:
             cursor.execute(
                 '''SELECT forwarded_by, forwarded_to, comments, forwarded_at, date_received 
                    FROM forwarding_history 
@@ -1596,23 +1635,19 @@ def user_dashboard():
                 (document_id,)
             )
             history_records = cursor.fetchall()
-
-            # Convert timestamps to Manila time
             converted_history = []
             for record in history_records:
                 forwarded_by, forwarded_to, comments, forwarded_at, date_received = record
                 utc_time = datetime.fromisoformat(forwarded_at).replace(tzinfo=pytz.utc)
                 manila_time = utc_time.astimezone(manila_tz).strftime('%Y-%m-%d %H:%M:%S')
                 date_received_str = date_received if date_received else 'N/A'
-                converted_history.append((forwarded_by, forwarded_to, comments, manila_time, date_received_str))         
-
+                converted_history.append((forwarded_by, forwarded_to, comments, manila_time, date_received_str))
             forwarding_histories[document_id] = converted_history
 
         # Fetch receiving history and convert timestamps to Manila time
         receiving_histories = {}
         cursor.execute("SELECT document_id, received_by, office_received, date_received FROM receiving_history")
         receiving_records = cursor.fetchall()
-        
         for record in receiving_records:
             document_id, received_by, office_received, date_received = record
             if date_received:
@@ -1636,18 +1671,11 @@ def user_dashboard():
             # Map each username to their office
             forwarded_to_offices = {row[0]: row[1] for row in users_cursor.fetchall()}
 
-    # Fetch documents forwarded to the user (including the 'received' status)
-    with sqlite3.connect('document_tracker.db') as conn:
-        cursor = conn.cursor()
-        cursor.execute('''SELECT id, name, position, division, office, document_type, submitted_by, details, received, comments 
-                        FROM documents WHERE forwarded_to = ? AND is_archived = 0''', (username,))
-        received_documents = cursor.fetchall()
-        
     # Determine office options based on selected division
     division = session.get('division', '')
     officeOptions = {
         'OSDS': ["Accounting", "Admin", "Budget", "ICT", "Legal", "Office of the ASDS", "Office of the SDS", "Payroll", "Personnel", "Records"],
-        'SGOD': ["Education Facilities", "Health", "HRD", "Planning & Research", "SGOD", "SMME", "SMN"],
+        'SGOD': ["Education Facilities", "Health", "HRD", "Planning and Research", "SGOD", "SMME", "SMN"],
         'CID': ["ALS", "CID", "LR", "PSDS"]
     }.get(division, [])
 
@@ -1660,9 +1688,9 @@ def user_dashboard():
         leave_applications=leave_applications,
         travel_authorities=travel_authorities,
         submitted_documents=submitted_documents,
-        received_documents=received_documents,
+        received_documents=received_documents,  # <-- now includes comments as doc[9]
         forwarding_histories=forwarding_histories,
-        receiving_histories=receiving_histories,  # Add receiving_histories
+        receiving_histories=receiving_histories,
         forwarded_to_offices=forwarded_to_offices,
         officeOptions=officeOptions
     )
@@ -2022,6 +2050,75 @@ def print_documents():
         forwarded_documents=forwarded_documents
     )
 
+@app.route('/documents_history')
+def documents_history():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    username = session.get('username')
+    search_query = request.args.get('search', '')
+
+    with sqlite3.connect('document_tracker.db') as conn:
+        cursor = conn.cursor()
+
+        # Fetch receiving history for the logged-in user, including document details
+        cursor.execute('''
+            SELECT d.document_type, rh.received_by, rh.office_received, rh.date_received, d.submitted_by,
+                   fh.forwarded_by, fh.comments, d.details
+            FROM receiving_history rh
+            JOIN documents d ON rh.document_id = d.id
+            LEFT JOIN (
+                SELECT document_id, MAX(forwarded_at) as max_forwarded_at
+                FROM forwarding_history
+                GROUP BY document_id
+            ) fh_max ON fh_max.document_id = d.id
+            LEFT JOIN forwarding_history fh ON fh.document_id = d.id AND fh.forwarded_at = fh_max.max_forwarded_at
+            WHERE rh.received_by = ?
+              AND (
+                  d.document_type LIKE ?
+                  OR d.submitted_by LIKE ?
+                  OR rh.received_by LIKE ?
+                  OR IFNULL(fh.forwarded_by, '') LIKE ?
+                  OR IFNULL(fh.forwarded_to, '') LIKE ?
+              )
+            ORDER BY rh.date_received DESC
+        ''', (
+            username,
+            f'%{search_query}%',
+            f'%{search_query}%',
+            f'%{search_query}%',
+            f'%{search_query}%',
+            f'%{search_query}%'
+        ))
+        receiving_history = cursor.fetchall()
+
+        # Fetch forwarding history for the logged-in user, including document details
+        cursor.execute('''
+            SELECT d.document_type, fh.forwarded_by, fh.forwarded_to, fh.comments, fh.forwarded_at, d.submitted_by, d.details
+            FROM forwarding_history fh
+            JOIN documents d ON fh.document_id = d.id
+            WHERE fh.forwarded_by = ?
+              AND (
+                  d.document_type LIKE ?
+                  OR d.submitted_by LIKE ?
+                  OR fh.forwarded_to LIKE ?
+                  OR fh.forwarded_by LIKE ?
+              )
+            ORDER BY fh.forwarded_at DESC
+        ''', (
+            username,
+            f'%{search_query}%',
+            f'%{search_query}%',
+            f'%{search_query}%',
+            f'%{search_query}%'
+        ))
+        forwarding_history = cursor.fetchall()
+
+    return render_template('documents_history.html', 
+                           receiving_history=receiving_history, 
+                           forwarding_history=forwarding_history, 
+                           search_query=search_query)
 # BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT 
 # BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT 
 # BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT BAC PROCUREMENT 
@@ -2081,7 +2178,42 @@ def clear_document_tracker_db():
 
     return redirect(url_for('admin_dashboard'))
 
+@app.route('/service_record')
+def service_record():
+    if 'user_id' not in session:
+        flash('Please log in first')
+        return redirect(url_for('index'))
+
+    user_id = session['user_id']
+    username = session.get('username')
+
+    # Fetch service record details from the database
+    with sqlite3.connect('users.db') as conn:
+        cursor = conn.cursor()
+        cursor.execute('''SELECT position, division, office, salary 
+                          FROM users 
+                          WHERE id = ?''', (user_id,))
+        user_details = cursor.fetchone()
+
+    # Check if user details exist
+    if not user_details:
+        flash('Service record not found', 'danger')
+        return redirect(url_for('user_dashboard'))
+
+    return render_template('service_record.html', user_details=user_details, username=username)
+
+
+
+def ensure_email_column():
+    with sqlite3.connect('users.db') as conn:
+        try:
+            conn.execute('ALTER TABLE users ADD COLUMN email TEXT')
+            print("Column 'email' added to users table.")
+        except sqlite3.OperationalError:
+            # Column already exists
+            pass
 
 if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))  # Get the PORT from environment, default to 5000
+    ensure_email_column()  # Ensure email column exists before running the app
+    port = int(os.environ.get('PORT', 5001))  # Get the PORT from environment, default to 5000
     app.run(debug=True, host='0.0.0.0', port=port)

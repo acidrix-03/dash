@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <h2 class="text-center mb-4">Documents History</h2>
+
+    <!-- Search Form -->
+    <form method="get" action="/documents_history" class="form-inline justify-content-center mb-4">
+        <div class="input-group">
+            <input type="text" name="search" class="form-control" placeholder="Search by Document Type, Owner, Received From, or Forwarded To..." value="{{ search_query }}">
+            <div class="input-group-append">
+                <button type="submit" class="btn btn-primary">Search</button>
+            </div>
+        </div>
+    </form>
+
+    <!-- Print Button -->
+    <div class="text-center mb-4">
+        <button class="btn btn-secondary" onclick="window.print()">Print</button>
+    </div>
+
+    <div class="mt-4">
+        <h4 class="text-primary">Documents Received</h4>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Document Type</th>
+                        <th>Details</th>
+                        <th>Owner</th>
+                        <th>Received From</th>
+                        <th>Comments</th>
+                        <th>Date Received</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in receiving_history %}
+                    <tr>
+                        <td>{{ record[0] }}</td>
+                        <td>
+                            {% if record|length > 7 %}
+                                {{ record[7] }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record|length > 4 and record[4] %}
+                                {{ record[4] }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record|length > 5 and record[5] %}
+                                {{ record[5] }}
+                            {% elif record|length > 4 and record[4] %}
+                                {{ record[4] }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if record|length > 6 %}
+                                {{ record[6] }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ record[3] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <h4 class="text-primary">Documents Forwarded</h4>
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead class="thead-dark">
+                    <tr>
+                        <th>Document Type</th>
+                        <th>Details</th>
+                        <th>Owner</th>
+                        <th>Forwarded To</th>
+                        <th>Comments</th>
+                        <th>Date Forwarded</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in forwarding_history %}
+                    <tr>
+                        <td>{{ record[0] }}</td>
+                        <td>
+                            {% if record|length > 6 %}
+                                {{ record[6] }}
+                            {% else %}
+                                N/A
+                            {% endif %}
+                        </td>
+                        <td>{{ record[5] }}</td>
+                        <td>{{ record[2] }}</td>
+                        <td>{{ record[3] }}</td>
+                        <td>{{ record[4] }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <a href="/user_dashboard" class="btn btn-info">Back to Dashboard</a>
+    </div>
+</div>
+{% endblock %}
